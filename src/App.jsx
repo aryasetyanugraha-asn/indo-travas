@@ -40,7 +40,8 @@ function App() {
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Menggunakan model gemini-2.0-flash untuk mengatasi error 404 pada gemini-1.5-flash
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
       const prompt = `Buatkan itinerary perjalanan singkat (json format tapi dibungkus teks biasa) untuk ${travellerProfile} yang ingin ke ${destination}.
       Fokus pada hal unik, estimasi biaya (IDR/Original Currency), dan tips visa.
