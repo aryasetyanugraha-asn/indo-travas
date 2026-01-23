@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// --- KONFIGURASI API KEY (Sebaiknya simpan di .env saat production) ---
-// GANTI DENGAN API KEY ANDA YANG SEBENARNYA
-const GEMINI_API_KEY = "";
-const GOOGLE_MAPS_KEY = "";
+// --- KONFIGURASI API KEY (Dimuat dari .env) ---
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 function App() {
   // State Management
@@ -32,7 +31,7 @@ function App() {
   // --- 1. LOGIKA AI (GEMINI) ---
   const generateItinerary = async () => {
     if (!GEMINI_API_KEY) {
-        alert("Mohon isi GEMINI_API_KEY di dalam kode src/App.jsx");
+        alert("Mohon isi VITE_GEMINI_API_KEY di dalam file .env");
         return;
     }
     setAiLoading(true);
