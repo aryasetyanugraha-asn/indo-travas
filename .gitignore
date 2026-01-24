@@ -7,19 +7,25 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies (Folder node_modules tidak perlu di-upload karena ukurannya besar)
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Editor directories and files (Settingan komputer lokal)
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
 *.suo
-*.ntvs*
+*.ntvs
 *.njsproj
 *.sln
 *.sw?
+
+# Environment Variables (SANGAT PENTING)
+# Mencegah file .env terbaca oleh Git agar API Key aman
 .env
+.env.*
+!.env.example
