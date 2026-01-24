@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
+import InteractiveMap from './InteractiveMap';
 
 const ItineraryTemplate = ({ data, onEdit, onSave }) => {
   if (!data) return null;
+  const [viewMode, setViewMode] = useState('timeline'); // 'timeline' or 'map'
 
   const {
     tripTitle,
@@ -13,6 +15,21 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
     dailyItinerary,
     tripType // 'general' or 'umrah'
   } = data;
+
+  // Extract all locations for the map
+  const mapLocations = useMemo(() => {
+    if (!dailyItinerary) return [];
+    const locs = [];
+    dailyItinerary.forEach(day => {
+        if (day.activities) {
+            day.activities.forEach(act => {
+                if (act.location) locs.push(act.location);
+            });
+        }
+    });
+    // Deduplicate
+    return [...new Set(locs)];
+  }, [dailyItinerary]);
 
   return (
     <div className="animate-fade-in pb-24">
@@ -67,12 +84,25 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
         )}
       </div>
 
-      {/* Daily Itinerary Timeline */}
-      <h3 className="font-bold text-gray-800 mb-4 text-md flex items-center gap-2">
-        <i className="fa-regular fa-calendar-days text-teal-600"></i> Detail Perjalanan
-      </h3>
+      {/* View Toggle */}
+      <div className="flex bg-gray-100 p-1 rounded-xl mb-6">
+          <button
+              onClick={() => setViewMode('timeline')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${viewMode === 'timeline' ? 'bg-white shadow-sm text-teal-700' : 'text-gray-500'}`}
+          >
+              <i className="fa-regular fa-calendar-days mr-1"></i> Timeline
+          </button>
+          <button
+              onClick={() => setViewMode('map')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${viewMode === 'map' ? 'bg-white shadow-sm text-teal-700' : 'text-gray-500'}`}
+          >
+              <i className="fa-solid fa-map-location-dot mr-1"></i> Peta Rute
+          </button>
+      </div>
 
-      <div className="space-y-6 relative border-l-2 border-gray-200 ml-3 pl-6 pb-2">
+      {/* TIMELINE VIEW */}
+      {viewMode === 'timeline' && (
+      <div className="space-y-6 relative border-l-2 border-gray-200 ml-3 pl-6 pb-2 animate-fade-in">
         {dailyItinerary && dailyItinerary.map((dayPlan, dayIdx) => (
             <div key={dayIdx} className="relative mb-8 last:mb-0">
                 {/* Day Marker */}
@@ -98,7 +128,7 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
                             <h5 className="font-bold text-sm text-gray-800 mb-1">{activity.activity}</h5>
                             <p className="text-xs text-gray-500 leading-relaxed">{activity.description}</p>
                             {activity.location && (
-                                <div className="mt-2 pt-2 border-t border-gray-50 flex items-center gap-1 text-[10px] text-blue-500">
+                                <div className="mt-2 pt-2 border-t border-gray-50 flex items-center gap-1 text-[10px] text-blue-500 cursor-pointer hover:text-blue-700">
                                     <i className="fa-solid fa-map-pin"></i> {activity.location}
                                 </div>
                             )}
@@ -108,6 +138,18 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
             </div>
         ))}
       </div>
+      )}
+
+      {/* MAP VIEW */}
+      {viewMode === 'map' && (
+        <div className="animate-fade-in">
+            <InteractiveMap locations={mapLocations} destination={destination} />
+            <div className="mt-4 bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-start gap-2">
+                <i className="fa-solid fa-circle-info text-blue-500 mt-0.5 text-xs"></i>
+                <p className="text-xs text-blue-700">Peta menampilkan lokasi aktivitas utama. Klik marker untuk melihat detail (coming soon).</p>
+            </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40 flex gap-3 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
