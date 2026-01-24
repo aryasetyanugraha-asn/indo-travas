@@ -6,12 +6,12 @@ import { getFirestore } from "firebase/firestore";
 // Konfigurasi Firebase Anda
 // Dapatkan data ini dari: Firebase Console -> Project Settings -> General -> Your Apps -> SDK Setup
 const firebaseConfig = {
-  apiKey: "API_KEY_FIREBASE_ANDA",
-  authDomain: "id-project-anda.firebaseapp.com",
-  projectId: "id-project-anda",
-  storageBucket: "id-project-anda.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef"
+  apiKey: "AIzaSyBzQwMZSq8ZAd--_pcRvaGkHp0tEq9SFOQ",
+  authDomain: "indotravas.firebaseapp.com",
+  projectId: "indotravas",
+  storageBucket: "indotravas.firebasestorage.app",
+  messagingSenderId: "805900654184",
+  appId: "1:805900654184:web:010331d0f1822d43078ddd"
 };
 
 // Initialize Firebase
