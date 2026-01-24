@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import ItineraryForm from './components/ItineraryForm';
+import ItineraryTemplate from './components/ItineraryTemplate';
 
 // --- KONFIGURASI API KEY (Dimuat dari .env) ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
@@ -9,59 +11,105 @@ function App() {
   // State Management
   const [activeTab, setActiveTab] = useState('home');
   const [homeMode, setHomeMode] = useState('general'); // 'general' or 'umrah'
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
-  const [directionText, setDirectionText] = useState("Menunggu rute...");
+  const [showPanicAlert, setShowPanicAlert] = useState(false);
 
   // Modal States
   const [showAIModal, setShowAIModal] = useState(false);
   const [showTLModal, setShowTLModal] = useState(false);
   const [showMuthawifModal, setShowMuthawifModal] = useState(false);
-  const [showPanicAlert, setShowPanicAlert] = useState(false);
 
-  // AI States
-  const [aiLoading, setAiLoading] = useState(false);
+  // AI & Itinerary States
+  const [aiStep, setAiStep] = useState('form'); // 'form', 'loading', 'result'
   const [aiResult, setAiResult] = useState(null);
-  const [travellerProfile, setTravellerProfile] = useState("Pengamat Burung dari Norwegia");
-  const [destination, setDestination] = useState("Indonesia (Bali & Jawa Timur)");
+  const [formData, setFormData] = useState(null);
 
   // Maps Refs
-  const mapRef = useRef(null);
   const directionsRenderer = useRef(null);
   const directionsService = useRef(null);
 
   // --- 1. LOGIKA AI (GEMINI) ---
-  const generateItinerary = async () => {
+  const handleFormSubmit = async (data) => {
+    setFormData(data); // Save for editing later
+    setAiStep('loading');
+
     if (!GEMINI_API_KEY) {
         alert("Mohon isi VITE_GEMINI_API_KEY di dalam file .env");
+        setAiStep('form');
         return;
     }
-    setAiLoading(true);
-    setAiResult(null);
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      // Menggunakan model gemini-3-flash-preview sesuai ketersediaan terbaru
       const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-      const prompt = `Buatkan itinerary perjalanan singkat (json format tapi dibungkus teks biasa) untuk ${travellerProfile} yang ingin ke ${destination}.
-      Fokus pada hal unik, estimasi biaya (IDR/Original Currency), dan tips visa.
-      Gunakan format HTML sederhana (gunakan tag <h4>, <ul>, <li>, <b>) agar bisa dirender.`;
+      const prompt = `Buatkan itinerary perjalanan ${homeMode === 'umrah' ? 'Umrah' : 'Liburan'} dalam format JSON valid.
+
+      Detail Permintaan:
+      - Tujuan: ${data.destination}
+      - Durasi: ${data.duration} hari
+      - Budget: ${homeMode === 'umrah' ? data.packageType : data.budget}
+      - Peserta: ${data.participants} orang
+      - Gaya/Minat: ${data.travelStyle.join(', ')}
+      - Catatan Khusus: ${data.specialRequests}
+      ${homeMode === 'umrah' ? `- Tanggal Keberangkatan: ${data.departureDate}` : ''}
+
+      Format JSON yang DIHARAPKAN (Strict JSON only, no markdown code block needed, just the raw JSON string):
+      {
+        "tripTitle": "Judul Perjalanan Menarik",
+        "destination": "${data.destination}",
+        "duration": "${data.duration} Hari",
+        "tripType": "${homeMode}",
+        "totalCostEstimate": "Estimasi total biaya dalam IDR (atau currency relevan)",
+        "highlights": ["Highlight 1", "Highlight 2", "Highlight 3"],
+        "importantInfo": ["Info Visa", "Tips Cuaca", "Info Transport"],
+        "dailyItinerary": [
+            {
+                "day": 1,
+                "title": "Judul Hari Ini",
+                "activities": [
+                    {
+                        "time": "08:00",
+                        "activity": "Nama Aktivitas",
+                        "location": "Lokasi spesifik",
+                        "description": "Deskripsi singkat aktivitas",
+                        "cost": "Estimasi biaya tiket/makan (opsional)"
+                    }
+                ]
+            }
+        ]
+      }
+      `;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
 
-      setAiResult(text);
+      // Clean up markdown code blocks if present
+      const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const jsonResult = JSON.parse(cleanText);
+
+      setAiResult(jsonResult);
+      setAiStep('result');
+
     } catch (error) {
       console.error("AI Error:", error);
-      alert("Gagal menghubungi AI. Periksa API Key atau Koneksi Internet.");
-    } finally {
-      setAiLoading(false);
+      alert("Gagal membuat itinerary. Coba lagi atau periksa koneksi.");
+      setAiStep('form');
     }
   };
 
+  const handleEditItinerary = () => {
+    setAiStep('form');
+  };
+
+  const handleSaveItinerary = () => {
+    alert("Itinerary tersimpan ke 'Perjalanan Saya'!");
+    setShowAIModal(false);
+    setActiveTab('trip');
+    // In a real app, this would save to a database or local storage
+  };
+
   // --- 2. LOGIKA MAPS (MANUAL SCRIPT INJECTION) ---
-  // Note: Keeping this for future reference, but strictly following prototype UI for now.
   useEffect(() => {
     if (activeTab === 'trip' && GOOGLE_MAPS_KEY) {
       const initMap = async () => {
@@ -120,67 +168,11 @@ function App() {
       alert("Sinyal darurat dibatalkan.");
   };
 
-  // Helper to trigger AI loading simulation if no API key
-  const handleAIRequest = () => {
+  const openAIModal = () => {
+      setAiStep('form');
+      setFormData(null); // Reset form on fresh open, or keep if you want persistence
       setShowAIModal(true);
-      if (!GEMINI_API_KEY) {
-          // Simulate loading for demo purposes if no key
-          setAiLoading(true);
-          setTimeout(() => {
-              setAiLoading(false);
-              setAiResult(`
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <span class="bg-teal-100 text-teal-700 text-[10px] font-bold px-2 py-1 rounded-full mb-2 inline-block"><i class="fa-solid fa-robot mr-1"></i> TRAVAS AI</span>
-                        <h2 class="text-2xl font-bold text-gray-800 leading-tight">Ekspedisi Avifauna Wallacea</h2>
-                        <p class="text-sm text-gray-500 mt-1"><i class="fa-solid fa-user-tag mr-1"></i> Norway Birdwatcher Edition</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3 mb-6">
-                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                        <p class="text-xs text-blue-500 mb-1">Durasi Ideal</p>
-                        <p class="font-bold text-gray-800">5 Hari 4 Malam</p>
-                    </div>
-                    <div class="bg-green-50 p-3 rounded-xl border border-green-100">
-                        <p class="text-xs text-green-600 mb-1">Estimasi Biaya</p>
-                        <p class="font-bold text-gray-800">Rp 8.500.000</p>
-                        <p class="text-[10px] text-gray-500">~5,850 NOK</p>
-                    </div>
-                </div>
-
-                <div class="bg-orange-50 border border-orange-100 rounded-lg p-3 mb-6 flex gap-3 items-start">
-                    <i class="fa-solid fa-triangle-exclamation text-orange-500 mt-1"></i>
-                    <div>
-                        <h4 class="font-bold text-xs text-orange-800">Info Penting (Norwegia)</h4>
-                        <ul class="text-[10px] text-orange-700 mt-1 list-disc pl-3 space-y-1">
-                            <li>Gunakan Visa on Arrival (VoA) - IDR 500k.</li>
-                            <li>Bawa lensa tele (min 400mm) & binokular.</li>
-                            <li>Cuaca tropis lembab, siapkan jas hujan ringan.</li>
-                        </ul>
-                    </div>
-                </div>
-                 <h3 class="font-bold text-gray-800 mb-3 text-sm">Target Spesies Utama</h3>
-                    <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                        <div class="min-w-[140px] relative rounded-xl overflow-hidden h-24 bg-gray-200 shadow-sm shrink-0">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Leucopsar_rothschildi_-_Bali_Bird_Park.jpg/640px-Leucopsar_rothschildi_-_Bali_Bird_Park.jpg" class="w-full h-full object-cover"/>
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-2">
-                                <p class="text-white text-xs font-bold">Jalak Bali</p>
-                                <p class="text-white text-[9px] opacity-80 italic">Leucopsar rothschildi</p>
-                            </div>
-                        </div>
-                        <div class="min-w-[140px] relative rounded-xl overflow-hidden h-24 bg-gray-200 shadow-sm shrink-0">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Pavo_muticus_-_Uda_Walawe.jpg/640px-Pavo_muticus_-_Uda_Walawe.jpg" class="w-full h-full object-cover"/>
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-2">
-                                <p class="text-white text-xs font-bold">Merak Hijau</p>
-                                <p class="text-white text-[9px] opacity-80 italic">Pavo muticus</p>
-                            </div>
-                        </div>
-                    </div>
-              `);
-          }, 2500);
-      }
-  };
+  }
 
 
   return (
@@ -245,7 +237,7 @@ function App() {
                         <h3 className="font-bold text-lg mb-1">Buat Itinerary Kilat</h3>
                         <p className="text-xs text-teal-100 mb-4 w-2/3">Rencanakan perjalanan impianmu dalam hitungan detik.</p>
                         <div className="flex gap-2">
-                            <button onClick={handleAIRequest} className="bg-white text-teal-600 px-3 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-100 transition flex items-center gap-1">
+                            <button onClick={openAIModal} className="bg-white text-teal-600 px-3 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-100 transition flex items-center gap-1">
                                 <i className="fa-solid fa-wand-magic-sparkles"></i> AI On-Demand
                             </button>
                             <button onClick={() => alert('Membuka koleksi gaya travel...')} className="bg-teal-700 bg-opacity-50 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-opacity-70 border border-teal-400">
@@ -432,9 +424,14 @@ function App() {
                         <span className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded mb-2 inline-block">SEASON 1446H</span>
                         <h3 className="font-bold text-lg mb-1 text-white">Ibadah Nyaman, Hati Tenang</h3>
                         <p className="text-xs text-gray-300 mb-4 w-3/4">Temukan paket umroh terpercaya dengan pendampingan muthawif terbaik.</p>
-                        <button className="bg-white text-gray-900 px-4 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-100 transition">
-                            <i className="fa-solid fa-calendar-check mr-1"></i> Jadwal Keberangkatan
-                        </button>
+                        <div className="flex gap-2">
+                            <button onClick={openAIModal} className="bg-white text-gray-900 px-3 py-2 rounded-lg text-xs font-bold shadow hover:bg-gray-100 transition flex items-center gap-1">
+                                <i className="fa-solid fa-wand-magic-sparkles"></i> Rencanakan Umrah AI
+                            </button>
+                            <button className="bg-transparent border border-gray-400 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-white/10 transition">
+                                <i className="fa-solid fa-calendar-check mr-1"></i> Jadwal
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -782,63 +779,42 @@ function App() {
             {/* Drag Handle */}
             <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6"></div>
 
-            {/* Loading State */}
-            {aiLoading && (
+            {/* STEP 1: FORM */}
+            {aiStep === 'form' && (
+                <ItineraryForm
+                    mode={homeMode}
+                    onSubmit={handleFormSubmit}
+                    initialData={formData}
+                />
+            )}
+
+            {/* STEP 2: LOADING */}
+            {aiStep === 'loading' && (
                 <div id="ai-loading" className="text-center py-24 flex flex-col items-center">
                     <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mb-4 relative">
                         <i className="fa-solid fa-wand-magic-sparkles text-teal-500 text-3xl animate-bounce z-10"></i>
                         <div className="absolute w-full h-full rounded-full border-4 border-teal-100 animate-ping opacity-75"></div>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">Meracik Perjalanan...</h3>
+                    <h3 className="text-xl font-bold text-gray-800">Sedang Meracik Perjalanan...</h3>
                     <div className="mt-4 space-y-2 text-sm text-gray-500">
-                        <p className="animate-pulse">🔍 Menganalisis profil: Birdwatcher (Norway)</p>
-                        <p className="animate-pulse delay-75">🌿 Mencari habitat endemik...</p>
-                        <p className="animate-pulse delay-150">💰 Menghitung konversi NOK ke IDR...</p>
+                        <p className="animate-pulse">🔍 Menganalisis prefrensi {homeMode === 'umrah' ? 'ibadah' : 'liburan'}...</p>
+                        <p className="animate-pulse delay-75">🌿 Mencari {homeMode === 'umrah' ? 'paket terbaik' : 'destinasi unik'}...</p>
+                        <p className="animate-pulse delay-150">💰 Menghitung estimasi biaya...</p>
                     </div>
                 </div>
             )}
 
-            {/* Result State */}
-            {!aiLoading && aiResult && (
-                <div id="ai-result" className="animate-fade-in">
-                    <div dangerouslySetInnerHTML={{ __html: aiResult }} />
-
-                    {/* Sticky Actions */}
-                    <div className="mt-4 grid grid-cols-2 gap-3 pt-2">
-                        <button className="w-full py-3 rounded-xl border border-teal-600 text-teal-600 font-bold text-sm hover:bg-teal-50 transition">Simpan Rute</button>
-                        <button className="w-full py-3 rounded-xl bg-teal-600 text-white font-bold text-sm shadow-lg shadow-teal-200 hover:bg-teal-700 transition">Booking Paket</button>
-                    </div>
-                    <div className="h-8"></div> {/* Spacer */}
-                </div>
+            {/* STEP 3: RESULT */}
+            {aiStep === 'result' && aiResult && (
+                <ItineraryTemplate
+                    data={aiResult}
+                    onEdit={handleEditItinerary}
+                    onSave={handleSaveItinerary}
+                />
             )}
 
-            {!aiLoading && !aiResult && (
-                 <div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">AI Itinerary Planner</h3>
-                    <div className="space-y-3 mb-4">
-                      <input
-                        type="text"
-                        value={travellerProfile}
-                        onChange={(e) => setTravellerProfile(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm"
-                        placeholder="Profil"
-                      />
-                      <input
-                        type="text"
-                        value={destination}
-                        onChange={(e) => setDestination(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm"
-                        placeholder="Tujuan"
-                      />
-                    </div>
-                    <button onClick={generateItinerary} className="w-full bg-teal-600 text-white font-bold py-3 rounded-xl">
-                      Buat Itinerary
-                    </button>
-                  </div>
-            )}
-
-            {/* Close Button if result is shown or just initial state to close */}
-             {!aiLoading && (
+            {/* Close Button (Only on Form) */}
+             {aiStep === 'form' && (
                 <button onClick={() => setShowAIModal(false)} className="absolute top-6 right-6 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i className="fa-solid fa-xmark"></i></button>
              )}
         </div>
