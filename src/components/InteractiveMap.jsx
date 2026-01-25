@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 
+// Module-level flag to ensure setOptions is called only once
+let optionsSet = false;
+
 const InteractiveMap = ({ locations = [], destination }) => {
   const mapRef = useRef(null);
   const [mapInstance, setMapInstance] = useState(null);
@@ -9,11 +12,14 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
   // Load Google Maps
   useEffect(() => {
-    setOptions({
-      key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-      v: "weekly",
-      libraries: ["places", "geometry"]
-    });
+    if (!optionsSet) {
+        setOptions({
+            key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+            v: "weekly",
+            libraries: ["places", "geometry", "marker"]
+        });
+        optionsSet = true;
+    }
 
     const initMap = async () => {
       try {
@@ -33,7 +39,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
         setLoading(false);
       } catch (e) {
         console.error("Maps Load Error:", e);
-        setError("Gagal memuat peta.");
+        setError("Gagal memuat peta. Pastikan API Key valid.");
         setLoading(false);
       }
     };
@@ -58,8 +64,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
       // Helper to geocode with delay to avoid RATE_LIMIT
       const geocodeAddress = (address, delay) => new Promise((resolve) => {
         setTimeout(() => {
-            // Append destination context if needed, e.g., "Ubud" -> "Ubud, Bali, Indonesia"
-            // For now, rely on the provided string.
+            // Append destination context if needed
             const query = address.includes(destination) ? address : `${address}, ${destination}`;
 
             geocoder.geocode({ address: query }, (results, status) => {
