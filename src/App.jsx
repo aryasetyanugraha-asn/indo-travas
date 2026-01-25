@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import ItineraryForm from './components/ItineraryForm';
 import ItineraryTemplate from './components/ItineraryTemplate';
+import InteractiveMap from './components/InteractiveMap';
+import AIVoiceAssistant from './components/AIVoiceAssistant';
 
 // --- KONFIGURASI API KEY (Dimuat dari .env) ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
@@ -21,11 +23,8 @@ function App() {
   // AI & Itinerary States
   const [aiStep, setAiStep] = useState('form'); // 'form', 'loading', 'result'
   const [aiResult, setAiResult] = useState(null);
+  const [savedTrip, setSavedTrip] = useState(null);
   const [formData, setFormData] = useState(null);
-
-  // Maps Refs
-  const directionsRenderer = useRef(null);
-  const directionsService = useRef(null);
 
   // --- 1. LOGIKA AI (GEMINI) ---
   const handleFormSubmit = async (data) => {
@@ -103,58 +102,11 @@ function App() {
   };
 
   const handleSaveItinerary = () => {
+    setSavedTrip(aiResult);
     alert("Itinerary tersimpan ke 'Perjalanan Saya'!");
     setShowAIModal(false);
     setActiveTab('trip');
-    // In a real app, this would save to a database or local storage
   };
-
-  // --- 2. LOGIKA MAPS (MANUAL SCRIPT INJECTION) ---
-  useEffect(() => {
-    if (activeTab === 'trip' && GOOGLE_MAPS_KEY) {
-      const initMap = async () => {
-        if (!window.google) return;
-
-        const { Map } = await window.google.maps.importLibrary("maps");
-        const { DirectionsService, DirectionsRenderer } = await window.google.maps.importLibrary("routes");
-
-        const bali = { lat: -8.409518, lng: 115.188919 };
-
-        const mapElement = document.getElementById("google-map");
-        if (mapElement) {
-            const map = new Map(mapElement, {
-                center: bali,
-                zoom: 10,
-                disableDefaultUI: true,
-            });
-
-            directionsService.current = new DirectionsService();
-            directionsRenderer.current = new DirectionsRenderer();
-            directionsRenderer.current.setMap(map);
-        }
-      };
-
-      const loadScript = () => {
-        if (window.google && window.google.maps) {
-            initMap();
-            return;
-        }
-
-        const scriptId = "google-maps-script";
-        if (document.getElementById(scriptId)) return;
-
-        const script = document.createElement("script");
-        script.id = scriptId;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places,routes`;
-        script.async = true;
-        script.defer = true;
-        script.onload = initMap;
-        document.head.appendChild(script);
-      };
-
-      loadScript();
-    }
-  }, [activeTab]);
 
   const activatePanic = () => {
       setShowPanicAlert(true);
@@ -624,40 +576,68 @@ function App() {
             </div>
 
             {/* Feature 4 & 6: Timeline & Maps */}
-            <h3 className="font-bold text-gray-700 mb-3 text-sm">Itinerary Hari Ini</h3>
-            <div className="space-y-4 relative pl-4 border-l-2 border-gray-200 ml-2">
-
-                {/* Timeline Item */}
-                <div className="relative pl-6">
-                    <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-teal-500 border-2 border-white"></div>
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                        <div className="flex justify-between">
-                            <h4 className="font-bold text-sm">Tiba di Ngurah Rai</h4>
-                            <span className="text-xs font-mono text-gray-500">17:35 WITA</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Sewa motor siap di parkiran A2.</p>
-                         {/* Google Map Integration Button */}
-                        <button className="mt-2 w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 text-xs py-2 rounded hover:bg-blue-100">
-                            <i className="fa-solid fa-map-location-dot"></i> Rute ke Hotel (Alternatif Jalan)
-                        </button>
-                    </div>
-                </div>
-
-                {/* Timeline Item */}
-                <div className="relative pl-6">
-                    <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-gray-300 border-2 border-white"></div>
-                    <div className="bg-white p-3 rounded-lg shadow-sm opacity-80">
-                        <div className="flex justify-between">
-                            <h4 className="font-bold text-sm">Check-in Hostel</h4>
-                            <span className="text-xs font-mono text-gray-500">19:00 WITA</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Tribal Bali Hostel, Pererenan.</p>
-                        <div className="flex gap-2 mt-2">
-                            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded"><i className="fa-regular fa-clock"></i> Alarm Set</span>
-                        </div>
-                    </div>
-                </div>
+            <div className="flex justify-between items-center mb-3">
+                <h3 className="font-bold text-gray-700 text-sm">Itinerary Hari Ini {savedTrip ? `(Day 1 - ${savedTrip.destination})` : ''}</h3>
             </div>
+
+            <div className="space-y-4 relative pl-4 border-l-2 border-gray-200 ml-2">
+                {savedTrip ? (
+                    savedTrip.dailyItinerary[0].activities.map((activity, idx) => (
+                        <div key={idx} className="relative pl-6">
+                            <div className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white ${idx === 0 ? 'bg-teal-500' : 'bg-gray-300'}`}></div>
+                            <div className={`bg-white p-3 rounded-lg shadow-sm ${idx === 0 ? '' : 'opacity-80'}`}>
+                                <div className="flex justify-between">
+                                    <h4 className="font-bold text-sm">{activity.activity}</h4>
+                                    <span className="text-xs font-mono text-gray-500">{activity.time}</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">{activity.description}</p>
+                                {activity.location && <p className="text-[10px] text-teal-600 mt-1"><i className="fa-solid fa-location-dot"></i> {activity.location}</p>}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <>
+                        {/* Timeline Item (Static Fallback) */}
+                        <div className="relative pl-6">
+                            <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-teal-500 border-2 border-white"></div>
+                            <div className="bg-white p-3 rounded-lg shadow-sm">
+                                <div className="flex justify-between">
+                                    <h4 className="font-bold text-sm">Tiba di Ngurah Rai</h4>
+                                    <span className="text-xs font-mono text-gray-500">17:35 WITA</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Sewa motor siap di parkiran A2.</p>
+                            </div>
+                        </div>
+                        <div className="relative pl-6">
+                            <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-gray-300 border-2 border-white"></div>
+                            <div className="bg-white p-3 rounded-lg shadow-sm opacity-80">
+                                <div className="flex justify-between">
+                                    <h4 className="font-bold text-sm">Check-in Hostel</h4>
+                                    <span className="text-xs font-mono text-gray-500">19:00 WITA</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Tribal Bali Hostel, Pererenan.</p>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Google Map Integration */}
+            <div className="mt-6">
+                <h3 className="font-bold text-gray-700 mb-2 text-sm">Rute Perjalanan</h3>
+                <InteractiveMap
+                    locations={savedTrip ? savedTrip.dailyItinerary[0].activities.filter(a => a.location).map(a => ({
+                        address: a.location,
+                        title: a.activity,
+                        description: a.description,
+                        time: a.time
+                    })) : []}
+                    destination={savedTrip?.destination || "Bali"}
+                />
+            </div>
+
+            {/* AI Voice Assistant */}
+            <AIVoiceAssistant data={savedTrip} />
         </section>
         )}
 
@@ -774,48 +754,53 @@ function App() {
 
         {/* Modal Content */}
         <div
-            className={`absolute bottom-0 w-full bg-white rounded-t-3xl p-6 h-[85vh] overflow-y-auto transform transition-transform duration-300 ${showAIModal ? 'translate-y-0' : 'translate-y-full'}`}
+            className={`absolute bottom-0 w-full bg-white rounded-t-3xl h-[85vh] transform transition-transform duration-300 flex flex-col ${showAIModal ? 'translate-y-0' : 'translate-y-full'}`}
         >
             {/* Drag Handle */}
-            <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6"></div>
+            <div className="shrink-0 pt-6 px-6 pb-0">
+                <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6"></div>
+            </div>
 
-            {/* STEP 1: FORM */}
-            {aiStep === 'form' && (
-                <ItineraryForm
-                    mode={homeMode}
-                    onSubmit={handleFormSubmit}
-                    initialData={formData}
-                />
-            )}
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
+                {/* STEP 1: FORM */}
+                {aiStep === 'form' && (
+                    <ItineraryForm
+                        mode={homeMode}
+                        onSubmit={handleFormSubmit}
+                        initialData={formData}
+                    />
+                )}
 
-            {/* STEP 2: LOADING */}
-            {aiStep === 'loading' && (
-                <div id="ai-loading" className="text-center py-24 flex flex-col items-center">
-                    <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mb-4 relative">
-                        <i className="fa-solid fa-wand-magic-sparkles text-teal-500 text-3xl animate-bounce z-10"></i>
-                        <div className="absolute w-full h-full rounded-full border-4 border-teal-100 animate-ping opacity-75"></div>
+                {/* STEP 2: LOADING */}
+                {aiStep === 'loading' && (
+                    <div id="ai-loading" className="text-center py-24 flex flex-col items-center">
+                        <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mb-4 relative">
+                            <i className="fa-solid fa-wand-magic-sparkles text-teal-500 text-3xl animate-bounce z-10"></i>
+                            <div className="absolute w-full h-full rounded-full border-4 border-teal-100 animate-ping opacity-75"></div>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-800">Sedang Meracik Perjalanan...</h3>
+                        <div className="mt-4 space-y-2 text-sm text-gray-500">
+                            <p className="animate-pulse">🔍 Menganalisis prefrensi {homeMode === 'umrah' ? 'ibadah' : 'liburan'}...</p>
+                            <p className="animate-pulse delay-75">🌿 Mencari {homeMode === 'umrah' ? 'paket terbaik' : 'destinasi unik'}...</p>
+                            <p className="animate-pulse delay-150">💰 Menghitung estimasi biaya...</p>
+                        </div>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">Sedang Meracik Perjalanan...</h3>
-                    <div className="mt-4 space-y-2 text-sm text-gray-500">
-                        <p className="animate-pulse">🔍 Menganalisis prefrensi {homeMode === 'umrah' ? 'ibadah' : 'liburan'}...</p>
-                        <p className="animate-pulse delay-75">🌿 Mencari {homeMode === 'umrah' ? 'paket terbaik' : 'destinasi unik'}...</p>
-                        <p className="animate-pulse delay-150">💰 Menghitung estimasi biaya...</p>
-                    </div>
-                </div>
-            )}
+                )}
 
-            {/* STEP 3: RESULT */}
-            {aiStep === 'result' && aiResult && (
-                <ItineraryTemplate
-                    data={aiResult}
-                    onEdit={handleEditItinerary}
-                    onSave={handleSaveItinerary}
-                />
-            )}
+                {/* STEP 3: RESULT */}
+                {aiStep === 'result' && aiResult && (
+                    <ItineraryTemplate
+                        data={aiResult}
+                        onEdit={handleEditItinerary}
+                        onSave={handleSaveItinerary}
+                    />
+                )}
+            </div>
 
             {/* Close Button (Only on Form) */}
              {aiStep === 'form' && (
-                <button onClick={() => setShowAIModal(false)} className="absolute top-6 right-6 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><i className="fa-solid fa-xmark"></i></button>
+                <button onClick={() => setShowAIModal(false)} className="absolute top-6 right-6 p-2 bg-gray-100 rounded-full hover:bg-gray-200 z-10"><i className="fa-solid fa-xmark"></i></button>
              )}
         </div>
       </div>
