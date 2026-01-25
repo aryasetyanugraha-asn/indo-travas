@@ -146,26 +146,32 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
             <InteractiveMap locations={mapLocations} destination={destination} />
             <div className="mt-4 bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-start gap-2">
                 <i className="fa-solid fa-circle-info text-blue-500 mt-0.5 text-xs"></i>
-                <p className="text-xs text-blue-700">Peta menampilkan lokasi aktivitas utama. Klik marker untuk melihat detail (coming soon).</p>
+                <p className="text-xs text-blue-700">Peta menampilkan lokasi aktivitas utama. Klik marker untuk melihat detail.</p>
             </div>
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40 flex gap-3 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-        <button
-            onClick={onEdit}
-            className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-600 font-bold text-sm hover:bg-gray-50 transition"
-        >
-            <i className="fa-solid fa-pen-to-square mr-2"></i> Edit
-        </button>
-        <button
-            onClick={onSave}
-            className="flex-1 py-3 rounded-xl bg-teal-600 text-white font-bold text-sm shadow-lg shadow-teal-200 hover:bg-teal-700 transition"
-        >
-            <i className="fa-solid fa-bookmark mr-2"></i> Simpan
-        </button>
-      </div>
+      {/* Action Buttons - Conditional Rendering */}
+      {(onEdit || onSave) && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40 flex gap-3 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+            {onEdit && (
+                <button
+                    onClick={onEdit}
+                    className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-600 font-bold text-sm hover:bg-gray-50 transition"
+                >
+                    <i className="fa-solid fa-pen-to-square mr-2"></i> Edit
+                </button>
+            )}
+            {onSave && (
+                <button
+                    onClick={onSave}
+                    className="flex-1 py-3 rounded-xl bg-teal-600 text-white font-bold text-sm shadow-lg shadow-teal-200 hover:bg-teal-700 transition"
+                >
+                    <i className="fa-solid fa-bookmark mr-2"></i> Simpan
+                </button>
+            )}
+        </div>
+      )}
     </div>
   );
 };
