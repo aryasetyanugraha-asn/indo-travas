@@ -16,19 +16,25 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
     tripType // 'general' or 'umrah'
   } = data;
 
-  // Extract all locations for the map
+  // Extract all locations for the map (Structured Data)
   const mapLocations = useMemo(() => {
     if (!dailyItinerary) return [];
     const locs = [];
     dailyItinerary.forEach(day => {
         if (day.activities) {
             day.activities.forEach(act => {
-                if (act.location) locs.push(act.location);
+                if (act.location) {
+                    locs.push({
+                        address: act.location,
+                        title: act.activity,
+                        time: act.time,
+                        description: act.description
+                    });
+                }
             });
         }
     });
-    // Deduplicate
-    return [...new Set(locs)];
+    return locs;
   }, [dailyItinerary]);
 
   return (

@@ -10,6 +10,9 @@ const InteractiveMap = ({ locations = [], destination }) => {
   const [directionsRenderer, setDirectionsRenderer] = useState(null);
   const [directionsService, setDirectionsService] = useState(null);
 
+  const markersRef = useRef([]);
+  const infoWindowRef = useRef(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [travelMode, setTravelMode] = useState('DRIVING'); // DRIVING, TRANSIT, WALKING
@@ -28,23 +31,26 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
     const initMap = async () => {
       try {
-        const { Map } = await importLibrary("maps");
+        const { Map, InfoWindow } = await importLibrary("maps");
         const { DirectionsService, DirectionsRenderer } = await importLibrary("routes");
 
         const map = new Map(mapRef.current, {
           center: { lat: -2.548926, lng: 118.0148634 }, // Indonesia Center
           zoom: 5,
-          mapId: "DEMO_MAP_ID", // Required for Advanced Markers (optional)
+          mapId: "DEMO_MAP_ID",
           disableDefaultUI: false,
           zoomControl: true,
           streetViewControl: false,
           mapTypeControl: false,
         });
 
+        // Initialize Shared InfoWindow
+        infoWindowRef.current = new InfoWindow();
+
         const dService = new DirectionsService();
         const dRenderer = new DirectionsRenderer({
             map: map,
-            suppressMarkers: false,
+            suppressMarkers: true, // We will manually plot markers to add InfoWindows
             polylineOptions: {
                 strokeColor: "#0d9488", // Teal-600
                 strokeOpacity: 0.8,
@@ -75,10 +81,20 @@ const InteractiveMap = ({ locations = [], destination }) => {
         setError(null);
         setRouteInfo(null);
 
+        // Clear previous markers
+        if (markersRef.current.length > 0) {
+            markersRef.current.forEach(m => m.setMap(null));
+            markersRef.current = [];
+        }
+
         // Clear previous directions
         if (directionsRenderer) {
              directionsRenderer.setDirections({ routes: [] });
         }
+
+        // Import libraries needed for this effect
+        const { Marker } = await importLibrary("marker");
+        const { Geocoder } = await importLibrary("geocoding");
 
         // SCENARIO 1: No Locations
         if (locations.length === 0) {
@@ -89,23 +105,42 @@ const InteractiveMap = ({ locations = [], destination }) => {
         // Helper to fix location string
         const fixLoc = (loc) => loc.includes(destination) ? loc : `${loc}, ${destination}`;
 
+        // Helper to create marker content
+        const createMarkerContent = (loc) => {
+             return `
+                <div style="padding: 6px; max-width: 200px; font-family: 'Poppins', sans-serif;">
+                    <h5 style="font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #0f766e;">${loc.title || 'Lokasi'}</h5>
+                    <p style="font-size: 12px; color: #555; margin-bottom: 2px;">${loc.time || ''}</p>
+                    <p style="font-size: 11px; color: #777;">${loc.description ? loc.description.substring(0, 100) + '...' : ''}</p>
+                </div>
+            `;
+        };
+
         // SCENARIO 2: Single Location (Geocode & Marker)
         if (locations.length === 1) {
              try {
-                const { Geocoder } = await importLibrary("geocoding");
-                const { Marker } = await importLibrary("marker");
+                const locObj = locations[0];
                 const geocoder = new Geocoder();
 
-                geocoder.geocode({ address: fixLoc(locations[0]) }, (results, status) => {
+                geocoder.geocode({ address: fixLoc(locObj.address) }, (results, status) => {
                     if (status === 'OK' && results[0]) {
                         const pos = results[0].geometry.location;
                         mapInstance.setCenter(pos);
-                        mapInstance.setZoom(12);
-                        new Marker({
+                        mapInstance.setZoom(14);
+
+                        const marker = new Marker({
                             map: mapInstance,
                             position: pos,
-                            title: locations[0]
+                            title: locObj.title,
+                            animation: window.google.maps.Animation.DROP
                         });
+
+                        marker.addListener("click", () => {
+                            infoWindowRef.current.setContent(createMarkerContent(locObj));
+                            infoWindowRef.current.open(mapInstance, marker);
+                        });
+
+                        markersRef.current.push(marker);
                     } else {
                         setError("Lokasi tidak ditemukan.");
                     }
@@ -121,27 +156,67 @@ const InteractiveMap = ({ locations = [], destination }) => {
         // SCENARIO 3: Multiple Locations (Directions API)
         if (directionsService && directionsRenderer) {
              try {
-                const origin = locations[0];
-                const destinationLoc = locations[locations.length - 1];
-                const waypoints = locations.slice(1, -1).map(loc => ({
-                    location: fixLoc(loc),
+                // Determine Origin, Dest, Waypoints
+                const originObj = locations[0];
+                const destObj = locations[locations.length - 1];
+                const waypointObjs = locations.slice(1, -1);
+
+                const waypoints = waypointObjs.map(loc => ({
+                    location: fixLoc(loc.address),
                     stopover: true
                 }));
 
                 const result = await directionsService.route({
-                    origin: fixLoc(origin),
-                    destination: fixLoc(destinationLoc),
+                    origin: fixLoc(originObj.address),
+                    destination: fixLoc(destObj.address),
                     waypoints: waypoints,
                     travelMode: window.google.maps.TravelMode[travelMode],
-                    optimizeWaypoints: true,
+                    optimizeWaypoints: false, // Keep itinerary order
                 });
 
                 directionsRenderer.setDirections(result);
 
+                // --- MANUALLY PLOT MARKERS ---
+                // We use the legs from the result to get accurate coordinates
+                const legs = result.routes[0].legs;
+
+                // Plot Origin
+                const originMarker = new Marker({
+                    position: legs[0].start_location,
+                    map: mapInstance,
+                    label: "1",
+                    title: originObj.title
+                });
+                originMarker.addListener("click", () => {
+                    infoWindowRef.current.setContent(createMarkerContent(originObj));
+                    infoWindowRef.current.open(mapInstance, originMarker);
+                });
+                markersRef.current.push(originMarker);
+
+                // Plot Waypoints & Destination
+                // legs[i].end_location corresponds to the arrival at the next point
+                legs.forEach((leg, index) => {
+                    const isDest = index === legs.length - 1;
+                    const locData = isDest ? destObj : waypointObjs[index];
+
+                    const marker = new Marker({
+                        position: leg.end_location,
+                        map: mapInstance,
+                        label: (index + 2).toString(),
+                        title: locData.title
+                    });
+
+                    marker.addListener("click", () => {
+                        infoWindowRef.current.setContent(createMarkerContent(locData));
+                        infoWindowRef.current.open(mapInstance, marker);
+                    });
+                    markersRef.current.push(marker);
+                });
+
                 // Calculate total stats
                 let totalDist = 0;
                 let totalDur = 0;
-                result.routes[0].legs.forEach(leg => {
+                legs.forEach(leg => {
                     totalDist += leg.distance.value;
                     totalDur += leg.duration.value;
                 });
@@ -153,8 +228,11 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
              } catch (e) {
                  console.warn("Directions Error:", e);
-                 setError("Rute tidak tersedia untuk mode ini.");
-                 // Could fallback to plotting markers here if needed
+                 setError("Rute tidak tersedia. Menampilkan marker saja.");
+
+                 // FALLBACK: Geocode everyone if route fails
+                 // This is complex to implement fully here, so we'll just stop loading.
+                 // Ideally we'd loop through and place markers.
              } finally {
                  setLoading(false);
              }

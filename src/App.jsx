@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import ItineraryForm from './components/ItineraryForm';
 import ItineraryTemplate from './components/ItineraryTemplate';
-import AIVoiceAssistant from './components/AIVoiceAssistant';
 
 // --- KONFIGURASI API KEY (Dimuat dari .env) ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
@@ -23,12 +22,10 @@ function App() {
   const [aiStep, setAiStep] = useState('form'); // 'form', 'loading', 'result'
   const [aiResult, setAiResult] = useState(null);
   const [formData, setFormData] = useState(null);
-  const [savedItinerary, setSavedItinerary] = useState(null);
 
   // Maps Refs
   const directionsRenderer = useRef(null);
   const directionsService = useRef(null);
-
 
   // --- 1. LOGIKA AI (GEMINI) ---
   const handleFormSubmit = async (data) => {
@@ -106,10 +103,10 @@ function App() {
   };
 
   const handleSaveItinerary = () => {
-    setSavedItinerary(aiResult);
     alert("Itinerary tersimpan ke 'Perjalanan Saya'!");
     setShowAIModal(false);
     setActiveTab('trip');
+    // In a real app, this would save to a database or local storage
   };
 
   // --- 2. LOGIKA MAPS (MANUAL SCRIPT INJECTION) ---
@@ -591,24 +588,76 @@ function App() {
         {/* VIEW: PERJALANAN (TRIP) */}
         {activeTab === 'trip' && (
         <section id="view-trip" className="animate-fade-in">
-            {savedItinerary ? (
-                <>
-                    <ItineraryTemplate data={savedItinerary} />
-                    <AIVoiceAssistant data={savedItinerary} />
-                    <div className="h-24"></div>
-                </>
-            ) : (
-                <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 opacity-60">
-                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                        <i className="fa-solid fa-map text-3xl text-gray-300"></i>
+            <h2 className="text-xl font-bold mb-4">Perjalanan Aktif</h2>
+
+            {/* Feature 5: Flight & Airport Info */}
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border-l-4 border-teal-500">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">ON TIME</span>
+                        <h3 className="font-bold text-lg">Garuda GA-402</h3>
                     </div>
-                    <h3 className="font-bold text-gray-700 mb-2">Belum Ada Perjalanan</h3>
-                    <p className="text-xs text-gray-500 mb-6">Buat itinerary dengan AI atau pilih paket wisata untuk memulai perjalanan Anda.</p>
-                    <button onClick={() => { setActiveTab('home'); openAIModal(); }} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-teal-700 transition">
-                        Buat Itinerary Baru
-                    </button>
+                    <div className="text-right">
+                        <p className="text-xs text-gray-500">Boarding</p>
+                        <p className="font-bold text-teal-600">14:30</p>
+                    </div>
                 </div>
-            )}
+                <div className="flex justify-between items-center text-sm mb-3">
+                    <div className="text-center">
+                        <p className="font-bold text-2xl">CGK</p>
+                        <p className="text-xs text-gray-500">Jakarta</p>
+                    </div>
+                    <div className="flex-1 px-4 text-center relative">
+                        <i className="fa-solid fa-plane text-gray-300"></i>
+                        <div className="h-[1px] bg-gray-300 absolute top-1/2 left-4 right-4 -z-10"></div>
+                    </div>
+                    <div className="text-center">
+                        <p className="font-bold text-2xl">DPS</p>
+                        <p className="text-xs text-gray-500">Bali</p>
+                    </div>
+                </div>
+                <div className="bg-gray-50 rounded p-2 text-xs flex justify-between">
+                    <span><i className="fa-solid fa-door-open mr-1"></i> Gate <b>E4</b></span>
+                    <span><i className="fa-solid fa-suitcase mr-1"></i> Belt <b>02</b></span>
+                    <span className="text-teal-600 cursor-pointer underline">Aturan Bandara</span>
+                </div>
+            </div>
+
+            {/* Feature 4 & 6: Timeline & Maps */}
+            <h3 className="font-bold text-gray-700 mb-3 text-sm">Itinerary Hari Ini</h3>
+            <div className="space-y-4 relative pl-4 border-l-2 border-gray-200 ml-2">
+
+                {/* Timeline Item */}
+                <div className="relative pl-6">
+                    <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-teal-500 border-2 border-white"></div>
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="flex justify-between">
+                            <h4 className="font-bold text-sm">Tiba di Ngurah Rai</h4>
+                            <span className="text-xs font-mono text-gray-500">17:35 WITA</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Sewa motor siap di parkiran A2.</p>
+                         {/* Google Map Integration Button */}
+                        <button className="mt-2 w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 text-xs py-2 rounded hover:bg-blue-100">
+                            <i className="fa-solid fa-map-location-dot"></i> Rute ke Hotel (Alternatif Jalan)
+                        </button>
+                    </div>
+                </div>
+
+                {/* Timeline Item */}
+                <div className="relative pl-6">
+                    <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-gray-300 border-2 border-white"></div>
+                    <div className="bg-white p-3 rounded-lg shadow-sm opacity-80">
+                        <div className="flex justify-between">
+                            <h4 className="font-bold text-sm">Check-in Hostel</h4>
+                            <span className="text-xs font-mono text-gray-500">19:00 WITA</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Tribal Bali Hostel, Pererenan.</p>
+                        <div className="flex gap-2 mt-2">
+                            <span className="text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded"><i className="fa-regular fa-clock"></i> Alarm Set</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
         )}
 

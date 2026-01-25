@@ -5,6 +5,11 @@ const AIVoiceAssistant = ({ data }) => {
   const [speaking, setSpeaking] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
+  // Voice Settings State
+  const [voices, setVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+
   // Flatten the itinerary into speakable steps
   const steps = useMemo(() => {
     if (!data || !data.dailyItinerary) return [];
@@ -39,6 +44,25 @@ const AIVoiceAssistant = ({ data }) => {
     return list;
   }, [data]);
 
+  // Load Voices
+  useEffect(() => {
+    const loadVoices = () => {
+        const available = window.speechSynthesis.getVoices();
+        setVoices(available);
+
+        // Try to auto-select an Indonesian voice if not yet selected
+        if (!selectedVoice) {
+            const indo = available.find(v => v.lang.includes('id-ID') || v.lang.includes('id_ID'));
+            if (indo) setSelectedVoice(indo);
+        }
+    };
+
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, [selectedVoice]);
+
   const handleSpeak = (index) => {
       if (!steps[index]) return;
 
@@ -50,7 +74,15 @@ const AIVoiceAssistant = ({ data }) => {
           window.speechSynthesis.cancel();
 
           const utterance = new SpeechSynthesisUtterance(textToSpeak);
-          utterance.lang = 'id-ID'; // Indonesian
+
+          if (selectedVoice) {
+              utterance.voice = selectedVoice;
+              // If voice is set, lang is usually inherited, but setting it ensures fallback
+              utterance.lang = selectedVoice.lang;
+          } else {
+              utterance.lang = 'id-ID'; // Fallback
+          }
+
           utterance.rate = 1.0;
           utterance.pitch = 1.0;
 
@@ -87,7 +119,7 @@ const AIVoiceAssistant = ({ data }) => {
   // Auto-greeting when activated first time
   useEffect(() => {
       if (active && currentStep === 0 && !speaking) {
-         // Optional: Auto start? Maybe annoying. Let's wait for user interaction.
+         // Optional: Auto start logic
       }
   }, [active]);
 
@@ -110,15 +142,45 @@ const AIVoiceAssistant = ({ data }) => {
       {active && (
         <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white rounded-2xl shadow-2xl z-50 border border-indigo-100 overflow-hidden animate-fade-in">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white flex justify-between items-center">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white flex justify-between items-center relative">
                 <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${speaking ? 'bg-green-400 animate-ping' : 'bg-gray-400'}`}></div>
                     <h3 className="font-bold text-sm">AI Trip Monitor</h3>
                 </div>
-                <button onClick={() => { setActive(false); stopSpeak(); }} className="text-white/80 hover:text-white">
-                    <i className="fa-solid fa-xmark"></i>
-                </button>
+                <div className="flex items-center gap-3">
+                    <button onClick={() => setShowSettings(!showSettings)} className="text-white/80 hover:text-white transition">
+                         <i className="fa-solid fa-gear"></i>
+                    </button>
+                    <button onClick={() => { setActive(false); stopSpeak(); }} className="text-white/80 hover:text-white">
+                        <i className="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
             </div>
+
+            {/* Settings Pane */}
+            {showSettings && (
+                <div className="bg-gray-100 p-3 text-xs border-b border-gray-200 animate-fade-in">
+                    <label className="block font-bold text-gray-700 mb-1">Pilih Suara / Voice:</label>
+                    <select
+                        className="w-full p-2 rounded border border-gray-300"
+                        value={selectedVoice ? selectedVoice.name : ""}
+                        onChange={(e) => {
+                            const v = voices.find(voice => voice.name === e.target.value);
+                            setSelectedVoice(v);
+                            // Test speak
+                            window.speechSynthesis.cancel();
+                        }}
+                    >
+                        <option value="">-- Default Browser --</option>
+                        {voices.map((voice) => (
+                            <option key={voice.name} value={voice.name}>
+                                {voice.name} ({voice.lang})
+                            </option>
+                        ))}
+                    </select>
+                    <p className="text-[10px] text-gray-500 mt-1">Tips: Cari suara "Male" atau "Indonesia".</p>
+                </div>
+            )}
 
             {/* Content */}
             <div className="p-4 bg-indigo-50">
