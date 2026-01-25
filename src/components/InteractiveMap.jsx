@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader } from "@googlemaps/js-api-loader";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 
 const InteractiveMap = ({ locations = [], destination }) => {
   const mapRef = useRef(null);
@@ -9,32 +9,36 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
   // Load Google Maps
   useEffect(() => {
-    const loader = new Loader({
-      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-      version: "weekly",
+    setOptions({
+      key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+      v: "weekly",
       libraries: ["places", "geometry"]
     });
 
-    loader.load().then(async () => {
-      const { Map } = await google.maps.importLibrary("maps");
+    const initMap = async () => {
+      try {
+        const { Map } = await importLibrary("maps");
 
-      const map = new Map(mapRef.current, {
-        center: { lat: -2.548926, lng: 118.0148634 }, // Indonesia Center
-        zoom: 5,
-        mapId: "DEMO_MAP_ID", // Required for Advanced Markers (optional)
-        disableDefaultUI: false,
-        zoomControl: true,
-        streetViewControl: false,
-        mapTypeControl: false,
-      });
+        const map = new Map(mapRef.current, {
+          center: { lat: -2.548926, lng: 118.0148634 }, // Indonesia Center
+          zoom: 5,
+          mapId: "DEMO_MAP_ID", // Required for Advanced Markers (optional)
+          disableDefaultUI: false,
+          zoomControl: true,
+          streetViewControl: false,
+          mapTypeControl: false,
+        });
 
-      setMapInstance(map);
-      setLoading(false);
-    }).catch(e => {
-      console.error("Maps Load Error:", e);
-      setError("Gagal memuat peta.");
-      setLoading(false);
-    });
+        setMapInstance(map);
+        setLoading(false);
+      } catch (e) {
+        console.error("Maps Load Error:", e);
+        setError("Gagal memuat peta.");
+        setLoading(false);
+      }
+    };
+
+    initMap();
   }, []);
 
   // Plot Markers when map & locations are ready
@@ -42,9 +46,10 @@ const InteractiveMap = ({ locations = [], destination }) => {
     if (!mapInstance || !locations || locations.length === 0) return;
 
     const plotLocations = async () => {
-      const { Geocoder } = await google.maps.importLibrary("geocoding");
-      const { Marker } = await google.maps.importLibrary("marker");
-      const { LatLngBounds } = await google.maps.importLibrary("core");
+      const { Geocoder } = await importLibrary("geocoding");
+      const { Marker } = await importLibrary("marker");
+      const { LatLngBounds } = await importLibrary("core");
+      const { Polyline } = await importLibrary("maps");
 
       const geocoder = new Geocoder();
       const bounds = new LatLngBounds();
@@ -92,7 +97,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
       // Draw Polyline
       if (pathCoordinates.length > 1) {
-          const line = new google.maps.Polyline({
+          const line = new Polyline({
               path: pathCoordinates,
               geodesic: true,
               strokeColor: "#0d9488", // Teal-600
