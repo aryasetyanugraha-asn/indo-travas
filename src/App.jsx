@@ -68,7 +68,7 @@ function App() {
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
       let systemInstruction = "";
       if (mode === 'general') {
@@ -112,7 +112,7 @@ function App() {
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
       const prompt = `Buatkan itinerary perjalanan ${homeMode === 'umrah' ? 'Umrah' : 'Liburan'} dalam format JSON valid.
 
