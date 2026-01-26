@@ -26,7 +26,80 @@ function App() {
   const [savedTrip, setSavedTrip] = useState(null);
   const [formData, setFormData] = useState(null);
 
+  // Chat States
+  const [tlChat, setTlChat] = useState([
+      { role: 'ai', text: 'Hi! Saya asisten TL Anda. Butuh bantuan untuk rute hotel atau rekomendasi makanan lokal?' }
+  ]);
+  const [muthawifChat, setMuthawifChat] = useState([
+      { role: 'ai', text: 'Assalamualaikum, ada yang bisa saya bantu terkait rukun umroh hari ini?' }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+
+  // Scroll to bottom of chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [tlChat, muthawifChat, showTLModal, showMuthawifModal]);
+
   // --- 1. LOGIKA AI (GEMINI) ---
+  const handleChatSubmit = async (mode, customPrompt = null) => {
+    const message = customPrompt || chatInput;
+    if (!message.trim()) return;
+
+    // Add user message to history
+    const newMessage = { role: 'user', text: message };
+    if (mode === 'general') {
+        setTlChat(prev => [...prev, newMessage]);
+    } else {
+        setMuthawifChat(prev => [...prev, newMessage]);
+    }
+
+    if (!customPrompt) setChatInput("");
+    setIsChatLoading(true);
+
+    if (!GEMINI_API_KEY) {
+        const errorMsg = { role: 'ai', text: "Error: API Key belum dikonfigurasi." };
+        if (mode === 'general') setTlChat(prev => [...prev, errorMsg]);
+        else setMuthawifChat(prev => [...prev, errorMsg]);
+        setIsChatLoading(false);
+        return;
+    }
+
+    try {
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      let systemInstruction = "";
+      if (mode === 'general') {
+          systemInstruction = "Anda adalah Virtual Tour Leader yang ramah dan membantu. Berikan tips perjalanan, panduan check-in, dan terjemahan singkat jika diminta. Jawab dengan ringkas dan informatif.";
+      } else if (mode === 'umrah') {
+          systemInstruction = "Anda adalah Virtual Muthawif (Ustadz AI). Berikan panduan ibadah umrah, doa-doa, dan tips spiritual sesuai sunnah. Gunakan bahasa yang sopan dan menyejukkan hati.";
+      }
+
+      const prompt = `${systemInstruction}\n\nUser: ${message}\nAI:`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+
+      const aiResponse = { role: 'ai', text: text };
+      if (mode === 'general') {
+          setTlChat(prev => [...prev, aiResponse]);
+      } else {
+          setMuthawifChat(prev => [...prev, aiResponse]);
+      }
+
+    } catch (error) {
+      console.error("Chat Error:", error);
+      const errorMsg = { role: 'ai', text: "Maaf, saya sedang mengalami gangguan koneksi." };
+      if (mode === 'general') setTlChat(prev => [...prev, errorMsg]);
+      else setMuthawifChat(prev => [...prev, errorMsg]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
   const handleFormSubmit = async (data) => {
     setFormData(data); // Save for editing later
     setAiStep('loading');
@@ -39,7 +112,7 @@ function App() {
 
     try {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `Buatkan itinerary perjalanan ${homeMode === 'umrah' ? 'Umrah' : 'Liburan'} dalam format JSON valid.
 
@@ -821,25 +894,72 @@ function App() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
-                <button className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col items-center gap-2 hover:bg-blue-100 transition">
+                <button
+                    onClick={() => handleChatSubmit('general', 'Panduan check-in bandara dan hotel.')}
+                    className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col items-center gap-2 hover:bg-blue-100 transition"
+                >
                     <i className="fa-solid fa-clipboard-check text-2xl text-blue-600"></i>
                     <span className="text-[10px] font-bold text-gray-700">Check-in Guide</span>
                 </button>
-                <button className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col items-center gap-2 hover:bg-blue-100 transition">
+                <button
+                    onClick={() => handleChatSubmit('general', 'Terjemahkan frasa penting untuk turis.')}
+                    className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col items-center gap-2 hover:bg-blue-100 transition"
+                >
                     <i className="fa-solid fa-language text-2xl text-blue-600"></i>
                     <span className="text-[10px] font-bold text-gray-700">Translate & Tips</span>
                 </button>
             </div>
 
-            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 mb-6">
-                <div className="flex items-center gap-2 mb-2">
+            {/* Chat Area */}
+            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 mb-6 flex flex-col h-72">
+                <div className="flex items-center gap-2 mb-2 shrink-0">
                     <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px]">
                         <i className="fa-solid fa-robot"></i>
                     </div>
                     <p className="text-xs font-bold text-gray-700">TL AI Assistant</p>
                 </div>
-                <div className="bg-white p-2 rounded-lg text-xs text-gray-600 shadow-sm border border-gray-100">
-                    Hi! Saya asisten TL Anda. Butuh bantuan untuk rute hotel atau rekomendasi makanan lokal?
+
+                {/* Messages List */}
+                <div className="flex-1 overflow-y-auto mb-2 space-y-2 pr-1">
+                    {tlChat.map((msg, idx) => (
+                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`p-2 rounded-lg text-xs max-w-[85%] whitespace-pre-wrap ${
+                                msg.role === 'user'
+                                ? 'bg-blue-600 text-white rounded-tr-none'
+                                : 'bg-white text-gray-600 shadow-sm border border-gray-100 rounded-tl-none'
+                            }`}>
+                                {msg.text}
+                            </div>
+                        </div>
+                    ))}
+                    {isChatLoading && (
+                         <div className="flex justify-start">
+                            <div className="bg-white p-2 rounded-lg rounded-tl-none text-xs text-gray-500 shadow-sm border border-gray-100">
+                                <i className="fa-solid fa-ellipsis fa-fade"></i>
+                            </div>
+                         </div>
+                    )}
+                    <div ref={chatEndRef}></div>
+                </div>
+
+                {/* Input Area */}
+                <div className="flex gap-2 shrink-0">
+                    <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleChatSubmit('general')}
+                        placeholder="Tanya rekomendasi, rute, dll..."
+                        className="w-full text-xs p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-blue-500"
+                        disabled={isChatLoading}
+                    />
+                    <button
+                        onClick={() => handleChatSubmit('general')}
+                        className={`bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center transition ${isChatLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+                        disabled={isChatLoading}
+                    >
+                        <i className="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
                 </div>
             </div>
 
@@ -868,32 +988,74 @@ function App() {
 
             <div className="grid grid-cols-2 gap-4 mb-6">
                 {/* Fitur 1: AR */}
-                <button className="bg-purple-50 p-4 rounded-xl border border-purple-100 flex flex-col items-center gap-2 hover:bg-purple-100 transition">
+                <button
+                    onClick={() => handleChatSubmit('umrah', 'Bagaimana tata cara tawaf yang benar?')}
+                    className="bg-purple-50 p-4 rounded-xl border border-purple-100 flex flex-col items-center gap-2 hover:bg-purple-100 transition"
+                >
                     <i className="fa-solid fa-vr-cardboard text-2xl text-purple-600"></i>
                     <span className="text-xs font-bold text-gray-700">Panduan Tawaf (AR)</span>
                 </button>
                 {/* Fitur 2: Audio */}
-                <button className="bg-purple-50 p-4 rounded-xl border border-purple-100 flex flex-col items-center gap-2 hover:bg-purple-100 transition">
+                <button
+                    onClick={() => handleChatSubmit('umrah', 'Tuliskan doa-doa penting saat Umrah.')}
+                    className="bg-purple-50 p-4 rounded-xl border border-purple-100 flex flex-col items-center gap-2 hover:bg-purple-100 transition"
+                >
                     <i className="fa-solid fa-circle-play text-2xl text-purple-600"></i>
                     <span className="text-xs font-bold text-gray-700">Audio Doa</span>
                 </button>
             </div>
 
-            {/* Chat Simulation */}
-            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 mb-6">
-                <div className="flex items-center gap-2 mb-2">
+            {/* Chat Area */}
+            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 mb-6 flex flex-col h-72">
+                <div className="flex items-center gap-2 mb-2 shrink-0">
                     <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-[10px]">
                         <i className="fa-solid fa-user-tie"></i>
                     </div>
                     <p className="text-xs font-bold text-gray-700">Ustadz AI</p>
                     <span className="text-[9px] bg-green-100 text-green-700 px-1 rounded ml-auto">Online</span>
                 </div>
-                <div className="bg-white p-2 rounded-lg rounded-tl-none text-xs text-gray-600 shadow-sm border border-gray-100">
-                    Assalamualaikum, ada yang bisa saya bantu terkait rukun umroh hari ini?
+
+                {/* Messages List */}
+                <div className="flex-1 overflow-y-auto mb-2 space-y-2 pr-1">
+                    {muthawifChat.map((msg, idx) => (
+                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`p-2 rounded-lg text-xs max-w-[85%] whitespace-pre-wrap ${
+                                msg.role === 'user'
+                                ? 'bg-purple-600 text-white rounded-tr-none'
+                                : 'bg-white text-gray-600 shadow-sm border border-gray-100 rounded-tl-none'
+                            }`}>
+                                {msg.text}
+                            </div>
+                        </div>
+                    ))}
+                    {isChatLoading && (
+                         <div className="flex justify-start">
+                            <div className="bg-white p-2 rounded-lg rounded-tl-none text-xs text-gray-500 shadow-sm border border-gray-100">
+                                <i className="fa-solid fa-ellipsis fa-fade"></i>
+                            </div>
+                         </div>
+                    )}
+                    <div ref={chatEndRef}></div>
                 </div>
-                <div className="mt-2 flex gap-2">
-                    <input type="text" placeholder="Tanya sesuatu..." className="w-full text-xs p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-purple-500" />
-                    <button className="bg-purple-600 text-white w-8 h-8 rounded-lg flex items-center justify-center"><i className="fa-solid fa-paper-plane text-xs"></i></button>
+
+                {/* Input Area */}
+                <div className="flex gap-2 shrink-0">
+                    <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleChatSubmit('umrah')}
+                        placeholder="Tanya hukum tawaf, doa, dll..."
+                        className="w-full text-xs p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-purple-500"
+                        disabled={isChatLoading}
+                    />
+                    <button
+                        onClick={() => handleChatSubmit('umrah')}
+                        className={`bg-purple-600 text-white w-8 h-8 rounded-lg flex items-center justify-center transition ${isChatLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-700'}`}
+                        disabled={isChatLoading}
+                    >
+                        <i className="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
                 </div>
             </div>
 
