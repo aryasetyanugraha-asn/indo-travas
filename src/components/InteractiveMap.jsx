@@ -265,29 +265,53 @@ const InteractiveMap = ({ locations = [], destination }) => {
         </div>
 
         {/* Best Travel Modes UI */}
-        <div className="flex justify-between items-center mt-3 bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
-             <div className="flex gap-2">
-                <button onClick={() => setTravelMode('DRIVING')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'DRIVING' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                    <i className="fa-solid fa-car mr-1"></i> Mobil
-                </button>
-                 <button onClick={() => setTravelMode('TRANSIT')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'TRANSIT' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                    <i className="fa-solid fa-bus mr-1"></i> Umum
-                </button>
-                 <button onClick={() => setTravelMode('WALKING')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'WALKING' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                    <i className="fa-solid fa-person-walking mr-1"></i> Jalan
-                </button>
-             </div>
-             {routeInfo && (
-                 <div className="text-right">
-                     <p className="text-xs font-bold text-gray-800">{routeInfo.distance}</p>
-                     <p className="text-[10px] text-gray-500">{routeInfo.duration}</p>
-                 </div>
-             )}
-             {!routeInfo && !loading && !error && (
-                 <div className="text-right">
-                     <p className="text-[10px] text-gray-400">Pilih mode</p>
-                 </div>
-             )}
+        <div className="flex flex-col gap-2 mt-3">
+            <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+                <div className="flex gap-2">
+                    <button onClick={() => setTravelMode('DRIVING')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'DRIVING' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                        <i className="fa-solid fa-car mr-1"></i> Mobil
+                    </button>
+                    <button onClick={() => setTravelMode('TRANSIT')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'TRANSIT' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                        <i className="fa-solid fa-bus mr-1"></i> Umum
+                    </button>
+                    <button onClick={() => setTravelMode('WALKING')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'WALKING' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                        <i className="fa-solid fa-person-walking mr-1"></i> Jalan
+                    </button>
+                </div>
+                {routeInfo && (
+                    <div className="text-right">
+                        <p className="text-xs font-bold text-gray-800">{routeInfo.distance}</p>
+                        <p className="text-[10px] text-gray-500">{routeInfo.duration}</p>
+                    </div>
+                )}
+                {!routeInfo && !loading && !error && (
+                    <div className="text-right">
+                        <p className="text-[10px] text-gray-400">Pilih mode</p>
+                    </div>
+                )}
+            </div>
+
+            <button
+                onClick={() => {
+                    if (!locations || locations.length === 0) return;
+                    const origin = encodeURIComponent(locations[0].address);
+                    let url = '';
+
+                    if (locations.length === 1) {
+                         url = `https://www.google.com/maps/search/?api=1&query=${origin}`;
+                    } else {
+                        const destination = encodeURIComponent(locations[locations.length - 1].address);
+                        const waypoints = locations.slice(1, -1).map(l => encodeURIComponent(l.address)).join('|');
+                        url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+                        if (waypoints) url += `&waypoints=${waypoints}`;
+                        url += `&travelmode=${travelMode.toLowerCase()}`;
+                    }
+                    window.open(url, '_blank');
+                }}
+                className="w-full bg-white border border-gray-200 text-teal-600 font-bold text-xs py-2 rounded-lg shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2"
+            >
+                <i className="fa-solid fa-map-location-dot"></i> Buka di Google Maps
+            </button>
         </div>
     </div>
   );

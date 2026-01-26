@@ -614,104 +614,100 @@ function App() {
         {/* VIEW: PERJALANAN (TRIP) */}
         {activeTab === 'trip' && (
         <section id="view-trip" className="animate-fade-in">
-            <h2 className="text-xl font-bold mb-4">Perjalanan Aktif</h2>
-
-            {/* Feature 5: Flight & Airport Info */}
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border-l-4 border-teal-500">
-                <div className="flex justify-between items-start mb-2">
-                    <div>
-                        <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">ON TIME</span>
-                        <h3 className="font-bold text-lg">Garuda GA-402</h3>
+            {!savedTrip ? (
+                <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6">
+                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400 text-4xl">
+                         <i className="fa-solid fa-map-location-dot"></i>
                     </div>
-                    <div className="text-right">
-                        <p className="text-xs text-gray-500">Boarding</p>
-                        <p className="font-bold text-teal-600">14:30</p>
-                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">Belum Ada Perjalanan</h3>
+                    <p className="text-sm text-gray-500 mb-6">Yuk, rencanakan liburan atau ibadahmu sekarang dengan bantuan AI kami!</p>
+                    <button onClick={openAIModal} className="bg-teal-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-teal-700 transition flex items-center gap-2">
+                        <i className="fa-solid fa-plus"></i> Buat Itinerary Baru
+                    </button>
                 </div>
-                <div className="flex justify-between items-center text-sm mb-3">
-                    <div className="text-center">
-                        <p className="font-bold text-2xl">CGK</p>
-                        <p className="text-xs text-gray-500">Jakarta</p>
-                    </div>
-                    <div className="flex-1 px-4 text-center relative">
-                        <i className="fa-solid fa-plane text-gray-300"></i>
-                        <div className="h-[1px] bg-gray-300 absolute top-1/2 left-4 right-4 -z-10"></div>
-                    </div>
-                    <div className="text-center">
-                        <p className="font-bold text-2xl">DPS</p>
-                        <p className="text-xs text-gray-500">Bali</p>
-                    </div>
-                </div>
-                <div className="bg-gray-50 rounded p-2 text-xs flex justify-between">
-                    <span><i className="fa-solid fa-door-open mr-1"></i> Gate <b>E4</b></span>
-                    <span><i className="fa-solid fa-suitcase mr-1"></i> Belt <b>02</b></span>
-                    <span className="text-teal-600 cursor-pointer underline">Aturan Bandara</span>
-                </div>
-            </div>
+            ) : (
+                <>
+                    <h2 className="text-xl font-bold mb-4">Perjalanan Aktif</h2>
 
-            {/* Feature 4 & 6: Timeline & Maps */}
-            <div className="flex justify-between items-center mb-3">
-                <h3 className="font-bold text-gray-700 text-sm">Itinerary Hari Ini {savedTrip ? `(Day 1 - ${savedTrip.destination})` : ''}</h3>
-            </div>
-
-            <div className="space-y-4 relative pl-4 border-l-2 border-gray-200 ml-2">
-                {savedTrip ? (
-                    savedTrip.dailyItinerary[0].activities.map((activity, idx) => (
-                        <div key={idx} className="relative pl-6">
-                            <div className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white ${idx === 0 ? 'bg-teal-500' : 'bg-gray-300'}`}></div>
-                            <div className={`bg-white p-3 rounded-lg shadow-sm ${idx === 0 ? '' : 'opacity-80'}`}>
-                                <div className="flex justify-between">
-                                    <h4 className="font-bold text-sm">{activity.activity}</h4>
-                                    <span className="text-xs font-mono text-gray-500">{activity.time}</span>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">{activity.description}</p>
-                                {activity.location && <p className="text-[10px] text-teal-600 mt-1"><i className="fa-solid fa-location-dot"></i> {activity.location}</p>}
+                    {/* Feature 5: Flight & Airport Info */}
+                    <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border-l-4 border-teal-500">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">ON TIME</span>
+                                <h3 className="font-bold text-lg">Garuda GA-402</h3>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs text-gray-500">Boarding</p>
+                                <p className="font-bold text-teal-600">14:30</p>
                             </div>
                         </div>
-                    ))
-                ) : (
-                    <>
-                        {/* Timeline Item (Static Fallback) */}
-                        <div className="relative pl-6">
-                            <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-teal-500 border-2 border-white"></div>
-                            <div className="bg-white p-3 rounded-lg shadow-sm">
-                                <div className="flex justify-between">
-                                    <h4 className="font-bold text-sm">Tiba di Ngurah Rai</h4>
-                                    <span className="text-xs font-mono text-gray-500">17:35 WITA</span>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">Sewa motor siap di parkiran A2.</p>
+                        <div className="flex justify-between items-center text-sm mb-3">
+                            <div className="text-center">
+                                <p className="font-bold text-2xl">CGK</p>
+                                <p className="text-xs text-gray-500">Jakarta</p>
+                            </div>
+                            <div className="flex-1 px-4 text-center relative">
+                                <i className="fa-solid fa-plane text-gray-300"></i>
+                                <div className="h-[1px] bg-gray-300 absolute top-1/2 left-4 right-4 -z-10"></div>
+                            </div>
+                            <div className="text-center">
+                                <p className="font-bold text-2xl">DPS</p>
+                                <p className="text-xs text-gray-500">Bali</p>
                             </div>
                         </div>
-                        <div className="relative pl-6">
-                            <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-gray-300 border-2 border-white"></div>
-                            <div className="bg-white p-3 rounded-lg shadow-sm opacity-80">
-                                <div className="flex justify-between">
-                                    <h4 className="font-bold text-sm">Check-in Hostel</h4>
-                                    <span className="text-xs font-mono text-gray-500">19:00 WITA</span>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">Tribal Bali Hostel, Pererenan.</p>
-                            </div>
+                        <div className="bg-gray-50 rounded p-2 text-xs flex justify-between">
+                            <span><i className="fa-solid fa-door-open mr-1"></i> Gate <b>E4</b></span>
+                            <span><i className="fa-solid fa-suitcase mr-1"></i> Belt <b>02</b></span>
+                            <span className="text-teal-600 cursor-pointer underline">Aturan Bandara</span>
                         </div>
-                    </>
-                )}
-            </div>
+                    </div>
 
-            {/* Google Map Integration */}
-            <div className="mt-6">
-                <h3 className="font-bold text-gray-700 mb-2 text-sm">Rute Perjalanan</h3>
-                <InteractiveMap
-                    locations={savedTrip ? savedTrip.dailyItinerary[0].activities.filter(a => a.location).map(a => ({
-                        address: a.location,
-                        title: a.activity,
-                        description: a.description,
-                        time: a.time
-                    })) : []}
-                    destination={savedTrip?.destination || "Bali"}
-                />
-            </div>
+                    {/* Timeline & Maps */}
+                    <h3 className="font-bold text-gray-700 text-sm mb-3">Jadwal Perjalanan Lengkap</h3>
 
-            {/* AI Voice Assistant */}
-            <AIVoiceAssistant data={savedTrip} />
+                    <div className="space-y-8 pl-2">
+                        {savedTrip.dailyItinerary.map((day, dayIdx) => (
+                            <div key={dayIdx}>
+                                <h4 className="font-bold text-teal-700 mb-4 text-xs uppercase tracking-wider bg-teal-50 inline-block px-2 py-1 rounded border border-teal-100">
+                                    <i className="fa-regular fa-calendar mr-1"></i> Hari ke-{day.day} • {day.title}
+                                </h4>
+                                <div className="space-y-4 relative pl-4 border-l-2 border-gray-200 ml-2">
+                                    {day.activities.map((activity, idx) => (
+                                        <div key={idx} className="relative pl-6">
+                                            <div className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white ${idx === 0 ? 'bg-teal-500' : 'bg-gray-300'}`}></div>
+                                            <div className={`bg-white p-3 rounded-lg shadow-sm ${idx === 0 ? '' : 'opacity-80'}`}>
+                                                <div className="flex justify-between">
+                                                    <h4 className="font-bold text-sm">{activity.activity}</h4>
+                                                    <span className="text-xs font-mono text-gray-500">{activity.time}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-1">{activity.description}</p>
+                                                {activity.location && <p className="text-[10px] text-teal-600 mt-1"><i className="fa-solid fa-location-dot"></i> {activity.location}</p>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Google Map Integration */}
+                    <div className="mt-8">
+                        <h3 className="font-bold text-gray-700 mb-2 text-sm">Rute Perjalanan (Hari 1)</h3>
+                        <InteractiveMap
+                            locations={savedTrip.dailyItinerary[0].activities.filter(a => a.location).map(a => ({
+                                address: a.location,
+                                title: a.activity,
+                                description: a.description,
+                                time: a.time
+                            }))}
+                            destination={savedTrip.destination}
+                        />
+                    </div>
+
+                    {/* AI Voice Assistant */}
+                    <AIVoiceAssistant data={savedTrip} />
+                </>
+            )}
         </section>
         )}
 
