@@ -74,7 +74,7 @@ function App() {
       if (mode === 'general') {
           systemInstruction = "Anda adalah Virtual Tour Leader yang ramah dan membantu. Berikan tips perjalanan, panduan check-in, dan terjemahan singkat jika diminta. Jawab dengan ringkas dan informatif.";
       } else if (mode === 'umrah') {
-          systemInstruction = "Anda adalah Virtual Muthawif (Ustadz AI). Berikan panduan ibadah umrah, doa-doa, dan tips spiritual sesuai sunnah. Gunakan bahasa yang sopan dan menyejukkan hati.";
+          systemInstruction = "Anda adalah Virtual Muthawif (Ustadz AI). Berikan panduan ibadah umrah, doa-doa, dan tips spiritual sesuai sunnah. Gunakan bahasa yang sopan dan menyejukkan hati. PENTING: Jangan menyingkat gelar kehormatan agama. Tulis 'Allah Subhanahu wa ta'ala' (bukan SWT) dan 'Rasulullah Shalallahu alaihi wasalam' (bukan SAW).";
       }
 
       const prompt = `${systemInstruction}\n\nUser: ${message}\nAI:`;
@@ -124,6 +124,7 @@ function App() {
       - Gaya/Minat: ${data.travelStyle.join(', ')}
       - Catatan Khusus: ${data.specialRequests}
       ${homeMode === 'umrah' ? `- Tanggal Keberangkatan: ${data.departureDate}` : ''}
+      ${homeMode === 'umrah' ? `- Instruksi Penulisan: Jangan menyingkat SWT (Gunakan: Subhanahu wa ta'ala) dan SAW (Gunakan: Shalallahu alaihi wasalam).` : ''}
 
       Format JSON yang DIHARAPKAN (Strict JSON only, no markdown code block needed, just the raw JSON string):
       {
