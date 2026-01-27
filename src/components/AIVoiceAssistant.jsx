@@ -52,7 +52,19 @@ const AIVoiceAssistant = ({ data }) => {
 
         // Try to auto-select an Indonesian voice if not yet selected
         if (!selectedVoice) {
-            const indo = available.find(v => v.lang.includes('id-ID') || v.lang.includes('id_ID'));
+            // Prioritize "Google Bahasa Indonesia"
+            let indo = available.find(v => v.name === 'Google Bahasa Indonesia');
+
+            // If not found, try any Google voice for Indonesian
+            if (!indo) {
+                indo = available.find(v => v.name.includes('Google') && (v.lang.includes('id-ID') || v.lang.includes('id_ID')));
+            }
+
+            // Fallback to any Indonesian voice (e.g., Damayanti)
+            if (!indo) {
+                indo = available.find(v => v.lang.includes('id-ID') || v.lang.includes('id_ID'));
+            }
+
             if (indo) setSelectedVoice(indo);
         }
     };
