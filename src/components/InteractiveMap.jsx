@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
+import { mapStyles } from './mapStyles';
 
 // Module-level flag to ensure setOptions is called only once
 let optionsSet = false;
@@ -17,6 +18,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
   const [error, setError] = useState(null);
   const [travelMode, setTravelMode] = useState('DRIVING'); // DRIVING, TRANSIT, WALKING
   const [routeInfo, setRouteInfo] = useState(null);
+  const [is3D, setIs3D] = useState(false);
 
   // Load Google Maps
   useEffect(() => {
@@ -37,11 +39,13 @@ const InteractiveMap = ({ locations = [], destination }) => {
         const map = new Map(mapRef.current, {
           center: { lat: -2.548926, lng: 118.0148634 }, // Indonesia Center
           zoom: 5,
-          mapId: "DEMO_MAP_ID",
-          disableDefaultUI: false,
-          zoomControl: true,
-          streetViewControl: false,
+          // mapId: "DEMO_MAP_ID", // Removed to allow JSON styles. Add back for Vector 3D features.
+          styles: mapStyles,
+          disableDefaultUI: true, // We will build custom UI
+          zoomControl: false,
           mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
         });
 
         // Initialize Shared InfoWindow
@@ -52,9 +56,9 @@ const InteractiveMap = ({ locations = [], destination }) => {
             map: map,
             suppressMarkers: true, // We will manually plot markers to add InfoWindows
             polylineOptions: {
-                strokeColor: "#0d9488", // Teal-600
+                strokeColor: "#0f766e", // Teal-700
                 strokeOpacity: 0.8,
-                strokeWeight: 5
+                strokeWeight: 6
             }
         });
 
@@ -71,6 +75,17 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
     initMap();
   }, []);
+
+  // 3D Toggle Effect
+  useEffect(() => {
+      if (mapInstance) {
+          mapInstance.setTilt(is3D ? 45 : 0);
+          mapInstance.setHeading(is3D ? 90 : 0);
+          // Note: Tilt only works at specific zoom levels for Raster maps (45 deg imagery)
+          // For full WebGL 3D, a Map ID (Vector) is required.
+          if (is3D) mapInstance.setZoom(18); // Force zoom to see buildings
+      }
+  }, [is3D, mapInstance]);
 
   // Logic: Calculate Route or Plot Markers
   useEffect(() => {
@@ -95,6 +110,28 @@ const InteractiveMap = ({ locations = [], destination }) => {
         // Import libraries needed for this effect
         const { Marker } = await importLibrary("marker");
         const { Geocoder } = await importLibrary("geocoding");
+
+        // Helper to generate Custom Icon (SVG)
+        const getCustomIcon = (index) => {
+            return {
+                path: window.google.maps.SymbolPath.CIRCLE,
+                scale: 12,
+                fillColor: "#0f766e",
+                fillOpacity: 1,
+                strokeWeight: 2,
+                strokeColor: "#ffffff",
+                labelOrigin: new window.google.maps.Point(0, 0)
+            };
+        };
+        const getLabel = (index) => {
+            return {
+                text: (index + 1).toString(),
+                color: "#ffffff",
+                fontSize: "12px",
+                fontWeight: "bold",
+                fontFamily: "Poppins"
+            };
+        };
 
         // SCENARIO 1: No Locations
         if (locations.length === 0) {
@@ -132,6 +169,8 @@ const InteractiveMap = ({ locations = [], destination }) => {
                             map: mapInstance,
                             position: pos,
                             title: locObj.title,
+                            icon: getCustomIcon(0),
+                            label: getLabel(0),
                             animation: window.google.maps.Animation.DROP
                         });
 
@@ -184,8 +223,10 @@ const InteractiveMap = ({ locations = [], destination }) => {
                 const originMarker = new Marker({
                     position: legs[0].start_location,
                     map: mapInstance,
-                    label: "1",
-                    title: originObj.title
+                    label: getLabel(0),
+                    title: originObj.title,
+                    icon: getCustomIcon(0),
+                    zIndex: 999
                 });
                 originMarker.addListener("click", () => {
                     infoWindowRef.current.setContent(createMarkerContent(originObj));
@@ -198,12 +239,15 @@ const InteractiveMap = ({ locations = [], destination }) => {
                 legs.forEach((leg, index) => {
                     const isDest = index === legs.length - 1;
                     const locData = isDest ? destObj : waypointObjs[index];
+                    const idx = index + 1; // 0 is origin, so this starts at 1
 
                     const marker = new Marker({
                         position: leg.end_location,
                         map: mapInstance,
-                        label: (index + 2).toString(),
-                        title: locData.title
+                        label: getLabel(idx),
+                        title: locData.title,
+                        icon: getCustomIcon(idx),
+                        zIndex: 999
                     });
 
                     marker.addListener("click", () => {
@@ -245,73 +289,82 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
   return (
     <div className="relative">
-        <div className="w-full h-64 md:h-96 bg-gray-100 rounded-xl overflow-hidden relative border border-gray-200 shadow-inner">
-        <div ref={mapRef} className="w-full h-full" />
+        <div className="w-full h-[500px] bg-gray-100 rounded-3xl overflow-hidden relative border border-gray-200 shadow-xl">
+            <div ref={mapRef} className="w-full h-full" />
 
-        {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80 z-10">
-                <div className="flex flex-col items-center">
-                    <i className="fa-solid fa-map-location-dot text-teal-500 text-3xl animate-bounce mb-2"></i>
-                    <p className="text-xs text-gray-500 font-bold">Memuat Rute...</p>
-                </div>
+            {/* Custom Overlay Controls */}
+
+            {/* 1. Top Right: 3D Toggle */}
+            <div className="absolute top-4 right-4 flex flex-col gap-2">
+                <button
+                    onClick={() => setIs3D(!is3D)}
+                    className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${is3D ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                    title="Toggle 3D View"
+                >
+                    <i className={`fa-solid ${is3D ? 'fa-cube' : 'fa-layer-group'}`}></i>
+                </button>
             </div>
-        )}
 
-        {error && (
-            <div className="absolute inset-0 flex items-center justify-center bg-red-50 z-10">
-                <p className="text-red-500 text-xs font-bold"><i className="fa-solid fa-triangle-exclamation mr-1"></i> {error}</p>
-            </div>
-        )}
-        </div>
+            {/* 2. Bottom Floating Bar: Travel Modes & Info */}
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] bg-white/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-white/50 flex items-center justify-between">
 
-        {/* Best Travel Modes UI */}
-        <div className="flex flex-col gap-2 mt-3">
-            <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
-                <div className="flex gap-2">
-                    <button onClick={() => setTravelMode('DRIVING')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'DRIVING' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                        <i className="fa-solid fa-car mr-1"></i> Mobil
+                {/* Mode Selector */}
+                <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+                    <button onClick={() => setTravelMode('DRIVING')} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${travelMode === 'DRIVING' ? 'bg-white text-teal-600 shadow' : 'text-gray-400'}`}>
+                        <i className="fa-solid fa-car"></i>
                     </button>
-                    <button onClick={() => setTravelMode('TRANSIT')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'TRANSIT' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                        <i className="fa-solid fa-bus mr-1"></i> Umum
+                    <button onClick={() => setTravelMode('TRANSIT')} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${travelMode === 'TRANSIT' ? 'bg-white text-teal-600 shadow' : 'text-gray-400'}`}>
+                        <i className="fa-solid fa-bus"></i>
                     </button>
-                    <button onClick={() => setTravelMode('WALKING')} className={`px-3 py-1.5 rounded text-xs font-bold transition ${travelMode === 'WALKING' ? 'bg-teal-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                        <i className="fa-solid fa-person-walking mr-1"></i> Jalan
+                    <button onClick={() => setTravelMode('WALKING')} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${travelMode === 'WALKING' ? 'bg-white text-teal-600 shadow' : 'text-gray-400'}`}>
+                        <i className="fa-solid fa-person-walking"></i>
                     </button>
                 </div>
-                {routeInfo && (
-                    <div className="text-right">
-                        <p className="text-xs font-bold text-gray-800">{routeInfo.distance}</p>
-                        <p className="text-[10px] text-gray-500">{routeInfo.duration}</p>
+
+                {/* Info Display */}
+                {routeInfo ? (
+                    <div className="text-right px-2">
+                        <p className="text-sm font-bold text-gray-800">{routeInfo.duration}</p>
+                        <p className="text-[10px] text-gray-500">{routeInfo.distance}</p>
+                    </div>
+                ) : (
+                    <div className="text-right px-2">
+                         <p className="text-[10px] text-gray-400 italic">Info Rute</p>
                     </div>
                 )}
-                {!routeInfo && !loading && !error && (
-                    <div className="text-right">
-                        <p className="text-[10px] text-gray-400">Pilih mode</p>
-                    </div>
-                )}
-            </div>
 
-            <button
-                onClick={() => {
-                    if (!locations || locations.length === 0) return;
-                    const origin = encodeURIComponent(locations[0].address);
-                    let url = '';
-
-                    if (locations.length === 1) {
-                         url = `https://www.google.com/maps/search/?api=1&query=${origin}`;
-                    } else {
+                {/* Open in Maps Button (Icon Only) */}
+                <button
+                    onClick={() => {
+                        if (!locations || locations.length === 0) return;
+                        const origin = encodeURIComponent(locations[0].address);
                         const destination = encodeURIComponent(locations[locations.length - 1].address);
-                        const waypoints = locations.slice(1, -1).map(l => encodeURIComponent(l.address)).join('|');
-                        url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
-                        if (waypoints) url += `&waypoints=${waypoints}`;
-                        url += `&travelmode=${travelMode.toLowerCase()}`;
-                    }
-                    window.open(url, '_blank');
-                }}
-                className="w-full bg-white border border-gray-200 text-teal-600 font-bold text-xs py-2 rounded-lg shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2"
-            >
-                <i className="fa-solid fa-map-location-dot"></i> Buka di Google Maps
-            </button>
+                        window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${travelMode.toLowerCase()}`, '_blank');
+                    }}
+                    className="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center hover:bg-teal-100 ml-2"
+                >
+                    <i className="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                </button>
+            </div>
+
+
+            {/* Loading Overlay */}
+            {loading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80 z-10 backdrop-blur-sm">
+                    <div className="flex flex-col items-center">
+                        <i className="fa-solid fa-map-location-dot text-teal-500 text-3xl animate-bounce mb-2"></i>
+                        <p className="text-xs text-gray-500 font-bold">Memuat Rute...</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Error Overlay */}
+            {error && (
+                <div className="absolute top-4 left-4 right-4 bg-red-50 p-2 rounded-lg shadow border border-red-100 flex items-center gap-2 z-10">
+                    <i className="fa-solid fa-triangle-exclamation text-red-500"></i>
+                    <p className="text-red-500 text-xs font-bold">{error}</p>
+                </div>
+            )}
         </div>
     </div>
   );
