@@ -11,6 +11,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
   const markersRef = useRef([]);
   const infoWindowRef = useRef(null);
+  const boundsRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,7 +31,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
         const map = new Map(mapRef.current, {
           center: { lat: -2.548926, lng: 118.0148634 }, // Indonesia Center
           zoom: 5,
-          // mapId: "DEMO_MAP_ID", // Removed to allow JSON styles. Add back for Vector 3D features.
+          mapId: "DEMO_MAP_ID", // Required for AdvancedMarkerElement
           styles: mapStyles,
           disableDefaultUI: true, // We will build custom UI
           zoomControl: false,
@@ -99,29 +100,39 @@ const InteractiveMap = ({ locations = [], destination }) => {
         }
 
         // Import libraries needed for this effect
-        const { Marker } = await importLibrary("marker");
+        const { AdvancedMarkerElement } = await importLibrary("marker");
         const { Geocoder } = await importLibrary("geocoding");
 
-        // Helper to generate Custom Icon (SVG)
-        const getCustomIcon = () => {
-            return {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 12,
-                fillColor: "#0f766e",
-                fillOpacity: 1,
-                strokeWeight: 2,
-                strokeColor: "#ffffff",
-                labelOrigin: new window.google.maps.Point(0, 0)
-            };
-        };
-        const getLabel = (index) => {
-            return {
-                text: (index + 1).toString(),
-                color: "#ffffff",
-                fontSize: "12px",
-                fontWeight: "bold",
-                fontFamily: "Poppins"
-            };
+        // Helper to create custom marker element (Teal Pin)
+        const createMarkerElement = (index) => {
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <div style="
+                    background-color: #0f766e;
+                    color: white;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50% 50% 50% 0;
+                    transform: rotate(-45deg);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                    border: 2px solid white;
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                ">
+                    <span style="transform: rotate(45deg); font-weight: bold; font-size: 14px; font-family: 'Poppins', sans-serif;">${index + 1}</span>
+                </div>
+            `;
+            // Add hover effect
+            div.addEventListener('mouseenter', () => {
+                div.firstElementChild.style.transform = 'rotate(-45deg) scale(1.1)';
+            });
+            div.addEventListener('mouseleave', () => {
+                div.firstElementChild.style.transform = 'rotate(-45deg) scale(1.0)';
+            });
+            return div;
         };
 
         // SCENARIO 1: No Locations
@@ -133,13 +144,27 @@ const InteractiveMap = ({ locations = [], destination }) => {
         // Helper to fix location string
         const fixLoc = (loc) => loc.includes(destination) ? loc : `${loc}, ${destination}`;
 
-        // Helper to create marker content
+        // Helper to create marker content (Enhanced InfoWindow)
         const createMarkerContent = (loc) => {
              return `
-                <div style="padding: 6px; max-width: 200px; font-family: 'Poppins', sans-serif;">
-                    <h5 style="font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #0f766e;">${loc.title || 'Lokasi'}</h5>
-                    <p style="font-size: 12px; color: #555; margin-bottom: 2px;">${loc.time || ''}</p>
-                    <p style="font-size: 11px; color: #777;">${loc.description ? loc.description.substring(0, 100) + '...' : ''}</p>
+                <div style="padding: 0px; max-width: 240px; font-family: 'Poppins', sans-serif;">
+                    <div style="background: #f0fdfa; padding: 10px; border-bottom: 1px solid #ccfbf1; display: flex; align-items: center; gap: 8px;">
+                        <div style="background: #0f766e; color: white; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 50%;">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </div>
+                        <h5 style="font-weight: bold; font-size: 14px; color: #0f766e; margin: 0;">${loc.title || 'Lokasi'}</h5>
+                    </div>
+                    <div style="padding: 10px;">
+                        <p style="font-size: 12px; color: #555; margin-bottom: 6px; display: flex; items-center; gap: 4px;">
+                            <i class="fa-regular fa-clock" style="color: #0f766e;"></i> ${loc.time || '-'}
+                        </p>
+                        <p style="font-size: 12px; color: #666; line-height: 1.4; margin-bottom: 10px;">
+                            ${loc.description ? (loc.description.length > 80 ? loc.description.substring(0, 80) + '...' : loc.description) : ''}
+                        </p>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}" target="_blank" style="display: block; text-align: center; background: #0f766e; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; transition: background 0.2s;">
+                            <i class="fa-solid fa-map-location-dot"></i> Lihat di Google Maps
+                        </a>
+                    </div>
                 </div>
             `;
         };
@@ -156,13 +181,11 @@ const InteractiveMap = ({ locations = [], destination }) => {
                         mapInstance.setCenter(pos);
                         mapInstance.setZoom(14);
 
-                        const marker = new Marker({
+                        const marker = new AdvancedMarkerElement({
                             map: mapInstance,
                             position: pos,
                             title: locObj.title,
-                            icon: getCustomIcon(0),
-                            label: getLabel(0),
-                            animation: window.google.maps.Animation.DROP
+                            content: createMarkerElement(0)
                         });
 
                         marker.addListener("click", () => {
@@ -186,6 +209,8 @@ const InteractiveMap = ({ locations = [], destination }) => {
         // SCENARIO 3: Multiple Locations (Directions API)
         if (directionsService && directionsRenderer) {
              try {
+                const bounds = new window.google.maps.LatLngBounds();
+
                 // Determine Origin, Dest, Waypoints
                 const originObj = locations[0];
                 const destObj = locations[locations.length - 1];
@@ -211,12 +236,12 @@ const InteractiveMap = ({ locations = [], destination }) => {
                 const legs = result.routes[0].legs;
 
                 // Plot Origin
-                const originMarker = new Marker({
+                bounds.extend(legs[0].start_location);
+                const originMarker = new AdvancedMarkerElement({
                     position: legs[0].start_location,
                     map: mapInstance,
-                    label: getLabel(0),
                     title: originObj.title,
-                    icon: getCustomIcon(0),
+                    content: createMarkerElement(0),
                     zIndex: 999
                 });
                 originMarker.addListener("click", () => {
@@ -228,16 +253,16 @@ const InteractiveMap = ({ locations = [], destination }) => {
                 // Plot Waypoints & Destination
                 // legs[i].end_location corresponds to the arrival at the next point
                 legs.forEach((leg, index) => {
+                    bounds.extend(leg.end_location);
                     const isDest = index === legs.length - 1;
                     const locData = isDest ? destObj : waypointObjs[index];
                     const idx = index + 1; // 0 is origin, so this starts at 1
 
-                    const marker = new Marker({
+                    const marker = new AdvancedMarkerElement({
                         position: leg.end_location,
                         map: mapInstance,
-                        label: getLabel(idx),
                         title: locData.title,
-                        icon: getCustomIcon(idx),
+                        content: createMarkerElement(idx),
                         zIndex: 999
                     });
 
@@ -247,6 +272,8 @@ const InteractiveMap = ({ locations = [], destination }) => {
                     });
                     markersRef.current.push(marker);
                 });
+
+                boundsRef.current = bounds;
 
                 // Calculate total stats
                 let totalDist = 0;
@@ -278,6 +305,46 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
   }, [mapInstance, directionsService, directionsRenderer, locations, travelMode, destination]);
 
+  const handleMyLocation = async () => {
+      if (navigator.geolocation && mapInstance) {
+          try {
+             const { AdvancedMarkerElement, PinElement } = await importLibrary("marker");
+             navigator.geolocation.getCurrentPosition((position) => {
+                  const pos = {
+                      lat: position.coords.latitude,
+                      lng: position.coords.longitude
+                  };
+                  mapInstance.panTo(pos);
+                  mapInstance.setZoom(15);
+                  new AdvancedMarkerElement({
+                      position: pos,
+                      map: mapInstance,
+                      title: "Lokasi Saya",
+                      content: new PinElement({
+                          background: "#3b82f6",
+                          borderColor: "#1d4ed8",
+                          glyphColor: "white",
+                          scale: 0.8
+                      }).element
+                  });
+              }, (e) => {
+                  console.warn(e);
+                  setError("Gagal mendeteksi lokasi. Pastikan GPS aktif.");
+              });
+          } catch (e) {
+              console.error(e);
+          }
+      } else {
+          setError("Browser tidak mendukung geolokasi.");
+      }
+  };
+
+  const handleFitBounds = () => {
+      if (boundsRef.current && mapInstance) {
+          mapInstance.fitBounds(boundsRef.current);
+      }
+  };
+
   return (
     <div className="relative">
         <div className="w-full h-[500px] bg-gray-100 rounded-3xl overflow-hidden relative border border-gray-200 shadow-xl">
@@ -285,14 +352,33 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
             {/* Custom Overlay Controls */}
 
-            {/* 1. Top Right: 3D Toggle */}
+            {/* 1. Top Right: Map Controls */}
             <div className="absolute top-4 right-4 flex flex-col gap-2">
+                {/* 3D Toggle */}
                 <button
                     onClick={() => setIs3D(!is3D)}
                     className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${is3D ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
                     title="Toggle 3D View"
                 >
                     <i className={`fa-solid ${is3D ? 'fa-cube' : 'fa-layer-group'}`}></i>
+                </button>
+
+                {/* Fit Bounds */}
+                <button
+                    onClick={handleFitBounds}
+                    className="w-10 h-10 rounded-full shadow-lg bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center transition-all"
+                    title="Fit Route"
+                >
+                    <i className="fa-solid fa-expand"></i>
+                </button>
+
+                 {/* My Location */}
+                 <button
+                    onClick={handleMyLocation}
+                    className="w-10 h-10 rounded-full shadow-lg bg-white text-blue-600 hover:bg-blue-50 flex items-center justify-center transition-all"
+                    title="Lokasi Saya"
+                >
+                    <i className="fa-solid fa-location-crosshairs"></i>
                 </button>
             </div>
 
