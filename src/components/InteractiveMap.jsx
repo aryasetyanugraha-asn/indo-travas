@@ -100,6 +100,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
         // Import libraries needed for this effect
         const { AdvancedMarkerElement } = await importLibrary("marker");
         const { Geocoder } = await importLibrary("geocoding");
+        const { Place } = await importLibrary("places");
 
         // Helper to create custom marker element (Teal Pin)
         const createMarkerElement = (index) => {
@@ -174,7 +175,6 @@ const InteractiveMap = ({ locations = [], destination }) => {
                 infoWindowRef.current.open(mapInstance, marker);
 
                 try {
-                     const { Place } = await importLibrary("places");
                      const { places } = await Place.searchByText({
                         textQuery: locData.address,
                         fields: ['photos']
