@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { importLibrary } from "@googlemaps/js-api-loader";
-import { mapStyles } from './mapStyles';
 import { initGoogleMaps } from '../utils/googleMapsLoader';
 
 const InteractiveMap = ({ locations = [], destination }) => {
@@ -32,7 +31,6 @@ const InteractiveMap = ({ locations = [], destination }) => {
           center: { lat: -2.548926, lng: 118.0148634 }, // Indonesia Center
           zoom: 5,
           mapId: "DEMO_MAP_ID", // Required for AdvancedMarkerElement
-          styles: mapStyles,
           disableDefaultUI: true, // We will build custom UI
           zoomControl: false,
           mapTypeControl: false,
@@ -142,7 +140,11 @@ const InteractiveMap = ({ locations = [], destination }) => {
         }
 
         // Helper to fix location string
-        const fixLoc = (loc) => loc.includes(destination) ? loc : `${loc}, ${destination}`;
+        const cleanDestination = destination ? destination.split('(')[0].trim() : '';
+        const fixLoc = (loc) => {
+             if (!cleanDestination) return loc;
+             return loc.toLowerCase().includes(cleanDestination.toLowerCase()) ? loc : `${loc}, ${cleanDestination}`;
+        };
 
         // Helper to create marker content (Enhanced InfoWindow)
         const createMarkerContent = (loc) => {
@@ -290,11 +292,43 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
              } catch (e) {
                  console.warn("Directions Error:", e);
-                 setError("Rute tidak tersedia. Menampilkan marker saja.");
+                 setError("Rute visual tidak tersedia. Menampilkan lokasi saja.");
 
-                 // FALLBACK: Geocode everyone if route fails
-                 // This is complex to implement fully here, so we'll just stop loading.
-                 // Ideally we'd loop through and place markers.
+                 // FALLBACK: Geocode individual locations
+                 const geocoder = new Geocoder();
+                 const bounds = new window.google.maps.LatLngBounds();
+
+                 // Use sequential loop to avoid Rate Limit (OVER_QUERY_LIMIT)
+                 for (const [index, locObj] of locations.entries()) {
+                     await new Promise((resolve) => {
+                         geocoder.geocode({ address: fixLoc(locObj.address) }, (results, status) => {
+                            if (status === 'OK' && results[0]) {
+                                const pos = results[0].geometry.location;
+                                bounds.extend(pos);
+
+                                const marker = new AdvancedMarkerElement({
+                                    map: mapInstance,
+                                    position: pos,
+                                    title: locObj.title,
+                                    content: createMarkerElement(index)
+                                });
+
+                                marker.addListener("click", () => {
+                                    infoWindowRef.current.setContent(createMarkerContent(locObj));
+                                    infoWindowRef.current.open(mapInstance, marker);
+                                });
+
+                                markersRef.current.push(marker);
+                            }
+                            resolve();
+                         });
+                     });
+                 }
+
+                 // Fit bounds once after all markers are placed
+                 if (!bounds.isEmpty()) {
+                     mapInstance.fitBounds(bounds);
+                 }
              } finally {
                  setLoading(false);
              }
