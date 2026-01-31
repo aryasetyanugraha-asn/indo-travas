@@ -147,28 +147,46 @@ const InteractiveMap = ({ locations = [], destination }) => {
         };
 
         // Helper to create marker content (Enhanced InfoWindow)
-        const createMarkerContent = (loc) => {
+        const createMarkerContent = (loc, photoUrl = null) => {
              return `
-                <div style="padding: 0px; max-width: 240px; font-family: 'Poppins', sans-serif;">
-                    <div style="background: #f0fdfa; padding: 10px; border-bottom: 1px solid #ccfbf1; display: flex; align-items: center; gap: 8px;">
-                        <div style="background: #0f766e; color: white; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 50%;">
-                            <i class="fa-solid fa-location-dot"></i>
+                <div style="padding: 0px; max-width: 260px; font-family: 'Poppins', sans-serif;">
+                    ${photoUrl ? `<div style="width: 100%; height: 120px; background-image: url('${photoUrl}'); background-size: cover; background-position: center;"></div>` : ''}
+                    <div style="padding: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                             <span style="background: #f3f4f6; color: #4b5563; font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 4px;">${loc.time || '-'}</span>
+                             ${loc.cost ? `<span style="font-size: 9px; color: #9ca3af;">${loc.cost}</span>` : ''}
                         </div>
-                        <h5 style="font-weight: bold; font-size: 14px; color: #0f766e; margin: 0;">${loc.title || 'Lokasi'}</h5>
-                    </div>
-                    <div style="padding: 10px;">
-                        <p style="font-size: 12px; color: #555; margin-bottom: 6px; display: flex; items-center; gap: 4px;">
-                            <i class="fa-regular fa-clock" style="color: #0f766e;"></i> ${loc.time || '-'}
+                        <h5 style="font-weight: bold; font-size: 14px; color: #1f2937; margin: 0 0 4px 0;">${loc.title || 'Lokasi'}</h5>
+                        <p style="font-size: 11px; color: #6b7280; line-height: 1.4; margin-bottom: 8px;">
+                            ${loc.description || ''}
                         </p>
-                        <p style="font-size: 12px; color: #666; line-height: 1.4; margin-bottom: 10px;">
-                            ${loc.description ? (loc.description.length > 80 ? loc.description.substring(0, 80) + '...' : loc.description) : ''}
-                        </p>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}" target="_blank" style="display: block; text-align: center; background: #0f766e; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; transition: background 0.2s;">
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address)}" target="_blank" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: #3b82f6; font-size: 10px; margin-top: 8px;">
                             <i class="fa-solid fa-map-location-dot"></i> Lihat di Google Maps
                         </a>
                     </div>
                 </div>
             `;
+        };
+
+        const setupMarkerListener = (marker, locData) => {
+            marker.addListener("click", async () => {
+                infoWindowRef.current.setContent(createMarkerContent(locData));
+                infoWindowRef.current.open(mapInstance, marker);
+
+                try {
+                     const { Place } = await importLibrary("places");
+                     const { places } = await Place.searchByText({
+                        textQuery: locData.address,
+                        fields: ['photos']
+                     });
+                     if (places && places.length > 0 && places[0].photos && places[0].photos.length > 0) {
+                         const photoUrl = places[0].photos[0].getURI({ maxWidth: 400, maxHeight: 300 });
+                         infoWindowRef.current.setContent(createMarkerContent(locData, photoUrl));
+                     }
+                } catch (e) {
+                    console.log("Photo fetch failed", e);
+                }
+            });
         };
 
         // SCENARIO 2: Single Location (Geocode & Marker)
@@ -190,10 +208,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
                             content: createMarkerElement(0)
                         });
 
-                        marker.addListener("click", () => {
-                            infoWindowRef.current.setContent(createMarkerContent(locObj));
-                            infoWindowRef.current.open(mapInstance, marker);
-                        });
+                        setupMarkerListener(marker, locObj);
 
                         markersRef.current.push(marker);
                     } else {
@@ -246,10 +261,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
                     content: createMarkerElement(0),
                     zIndex: 999
                 });
-                originMarker.addListener("click", () => {
-                    infoWindowRef.current.setContent(createMarkerContent(originObj));
-                    infoWindowRef.current.open(mapInstance, originMarker);
-                });
+                setupMarkerListener(originMarker, originObj);
                 markersRef.current.push(originMarker);
 
                 // Plot Waypoints & Destination
@@ -268,10 +280,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
                         zIndex: 999
                     });
 
-                    marker.addListener("click", () => {
-                        infoWindowRef.current.setContent(createMarkerContent(locData));
-                        infoWindowRef.current.open(mapInstance, marker);
-                    });
+                    setupMarkerListener(marker, locData);
                     markersRef.current.push(marker);
                 });
 
@@ -313,10 +322,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
                                     content: createMarkerElement(index)
                                 });
 
-                                marker.addListener("click", () => {
-                                    infoWindowRef.current.setContent(createMarkerContent(locObj));
-                                    infoWindowRef.current.open(mapInstance, marker);
-                                });
+                                setupMarkerListener(marker, locObj);
 
                                 markersRef.current.push(marker);
                             }
