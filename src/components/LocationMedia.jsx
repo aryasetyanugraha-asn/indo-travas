@@ -1,59 +1,114 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { importLibrary } from "@googlemaps/js-api-loader";
 import { initGoogleMaps } from '../utils/googleMapsLoader';
 
 const LocationMedia = ({ location }) => {
     const [photoUrl, setPhotoUrl] = useState(null);
+    const [coords, setCoords] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Refs for the map containers
+    const streetViewRef = useRef(null);
+    const mapRef = useRef(null);
+
+    // Initialize Maps and fetch Place data
     useEffect(() => {
         if (!location) return;
 
         initGoogleMaps();
 
-        const fetchPhoto = async () => {
+        const fetchPlaceData = async () => {
             try {
-                // Use the new Places API (Place class) instead of legacy PlacesService
+                // Use the new Places API (Place class)
                 const { Place } = await importLibrary("places");
 
                 // Search for the place by text query
+                // Request 'location' to get lat/lng for the maps
                 const { places } = await Place.searchByText({
                     textQuery: location,
-                    fields: ['photos']
+                    fields: ['photos', 'location']
                 });
 
-                if (places && places.length > 0 && places[0].photos && places[0].photos.length > 0) {
-                     // Use the new getURI method for photos
-                    setPhotoUrl(places[0].photos[0].getURI({ maxWidth: 400, maxHeight: 300 }));
+                if (places && places.length > 0) {
+                    const place = places[0];
+
+                    // Set Photo
+                    if (place.photos && place.photos.length > 0) {
+                        setPhotoUrl(place.photos[0].getURI({ maxWidth: 400, maxHeight: 300 }));
+                    }
+
+                    // Set Coordinates
+                    if (place.location) {
+                        setCoords(place.location);
+                    }
                 } else {
-                    // Fallback or no photo found
-                    console.log(`No photo found for: ${location}`);
+                    console.log(`No place found for: ${location}`);
                 }
             } catch (error) {
-                console.error("Error fetching place photo with new API:", error);
-                // The legacy error might still persist if the project hasn't enabled the new API either.
-                // But this code is definitely using the new method.
+                console.error("Error fetching place data:", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchPhoto();
+        fetchPlaceData();
 
     }, [location]);
 
+    // Initialize Dynamic Maps when coordinates are available
+    useEffect(() => {
+        if (!coords) return;
+
+        const initMaps = async () => {
+            try {
+                const { Map } = await importLibrary("maps");
+                const { StreetViewPanorama } = await importLibrary("streetView");
+
+                // 1. Initialize Street View
+                if (streetViewRef.current) {
+                     new StreetViewPanorama(streetViewRef.current, {
+                        position: coords,
+                        pov: { heading: 165, pitch: 0 },
+                        zoom: 0,
+                        disableDefaultUI: true,
+                        addressControl: false,
+                        linksControl: false,
+                        panControl: false,
+                        enableCloseButton: false,
+                        showRoadLabels: false
+                     });
+                }
+
+                // 2. Initialize Map (Zoomable)
+                if (mapRef.current) {
+                    new Map(mapRef.current, {
+                        center: coords,
+                        zoom: 17,
+                        disableDefaultUI: true, // Keep it clean
+                        mapTypeId: 'roadmap',
+                        clickableIcons: false
+                    });
+                }
+            } catch (e) {
+                console.error("Error initializing maps:", e);
+            }
+        }
+
+        initMaps();
+    }, [coords]);
+
     if (!location) return null;
 
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     const encodedLoc = encodeURIComponent(location);
 
-    const openMap = () => {
+    const openMap = (e) => {
+         e.stopPropagation(); // Prevent messing with map interaction if triggered from overlay
          window.open(`https://www.google.com/maps/search/?api=1&query=${encodedLoc}`, '_blank');
     };
 
     return (
         <div className="mt-4 grid grid-cols-3 gap-2">
-            {/* 1. Location Photo */}
+            {/* 1. Location Photo (Kept as is, works well) */}
             <div onClick={openMap} className="aspect-[4/3] rounded-lg overflow-hidden relative bg-gray-100 shadow-sm border border-gray-100 group cursor-pointer">
                 {loading ? (
                     <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -72,34 +127,32 @@ const LocationMedia = ({ location }) => {
                 </div>
             </div>
 
-            {/* 2. Street View */}
-            <div onClick={openMap} className="aspect-[4/3] rounded-lg overflow-hidden relative bg-gray-100 shadow-sm border border-gray-100 group cursor-pointer">
-                <img
-                    src={`https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${encodedLoc}&key=${apiKey}`}
-                    alt="Street View"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.fallback').style.display = 'flex'; }}
-                />
-                 {/* Fallback for error */}
-                <div className="fallback w-full h-full hidden flex-col items-center justify-center text-gray-300 bg-gray-50 absolute top-0 left-0">
-                    <i className="fa-solid fa-road text-2xl mb-1"></i>
-                    <span className="text-[10px]">No View</span>
-                </div>
+            {/* 2. Street View (Dynamic) */}
+            <div className="aspect-[4/3] rounded-lg overflow-hidden relative bg-gray-100 shadow-sm border border-gray-100">
+                {loading || !coords ? (
+                     <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <i className="fa-solid fa-circle-notch fa-spin"></i>
+                    </div>
+                ) : (
+                    <div ref={streetViewRef} className="w-full h-full" />
+                )}
 
-                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 pointer-events-none">
-                    <p className="text-white text-[10px] font-bold shadow-black drop-shadow-md"><i className="fa-solid fa-street-view mr-1"></i> Jalan</p>
+                 <div onClick={openMap} className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 cursor-pointer transition-opacity hover:opacity-90">
+                    <p className="text-white text-[10px] font-bold shadow-black drop-shadow-md"><i className="fa-solid fa-street-view mr-1"></i> Jalan <span className="text-[8px] font-normal opacity-80">(Buka Maps)</span></p>
                 </div>
             </div>
 
-            {/* 3. Map View */}
-            <div onClick={openMap} className="aspect-[4/3] rounded-lg overflow-hidden relative bg-gray-100 shadow-sm border border-gray-100 group cursor-pointer">
-                 <img
-                    src={`https://maps.googleapis.com/maps/api/staticmap?center=${encodedLoc}&zoom=17&size=400x300&maptype=roadmap&markers=color:teal|${encodedLoc}&key=${apiKey}`}
-                    alt="Map"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 pointer-events-none">
-                    <p className="text-white text-[10px] font-bold shadow-black drop-shadow-md"><i className="fa-solid fa-map mr-1"></i> Peta</p>
+            {/* 3. Map View (Dynamic) */}
+            <div className="aspect-[4/3] rounded-lg overflow-hidden relative bg-gray-100 shadow-sm border border-gray-100">
+                 {loading || !coords ? (
+                     <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <i className="fa-solid fa-circle-notch fa-spin"></i>
+                    </div>
+                ) : (
+                    <div ref={mapRef} className="w-full h-full" />
+                )}
+                 <div onClick={openMap} className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 cursor-pointer transition-opacity hover:opacity-90">
+                    <p className="text-white text-[10px] font-bold shadow-black drop-shadow-md"><i className="fa-solid fa-map mr-1"></i> Peta <span className="text-[8px] font-normal opacity-80">(Buka Maps)</span></p>
                 </div>
             </div>
         </div>
