@@ -19,7 +19,8 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
                         address: act.location,
                         title: act.activity,
                         time: act.time,
-                        description: act.description
+                        description: act.description,
+                        cost: act.cost
                     });
                 }
             });
