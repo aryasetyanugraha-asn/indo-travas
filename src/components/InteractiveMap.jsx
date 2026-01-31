@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
+import { importLibrary } from "@googlemaps/js-api-loader";
 import { mapStyles } from './mapStyles';
-
-// Module-level flag to ensure setOptions is called only once
-let optionsSet = false;
+import { initGoogleMaps } from '../utils/googleMapsLoader';
 
 const InteractiveMap = ({ locations = [], destination }) => {
   const mapRef = useRef(null);
@@ -22,14 +20,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
 
   // Load Google Maps
   useEffect(() => {
-    if (!optionsSet) {
-        setOptions({
-            key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-            v: "weekly",
-            libraries: ["places", "geometry", "marker", "routes"]
-        });
-        optionsSet = true;
-    }
+    initGoogleMaps();
 
     const initMap = async () => {
       try {
@@ -112,7 +103,7 @@ const InteractiveMap = ({ locations = [], destination }) => {
         const { Geocoder } = await importLibrary("geocoding");
 
         // Helper to generate Custom Icon (SVG)
-        const getCustomIcon = (index) => {
+        const getCustomIcon = () => {
             return {
                 path: window.google.maps.SymbolPath.CIRCLE,
                 scale: 12,

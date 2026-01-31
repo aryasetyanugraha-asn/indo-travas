@@ -1,20 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import InteractiveMap from './InteractiveMap';
+import LocationMedia from './LocationMedia';
 
 const ItineraryTemplate = ({ data, onEdit, onSave }) => {
-  if (!data) return null;
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline' or 'map'
 
-  const {
-    tripTitle,
-    destination,
-    duration,
-    totalCostEstimate,
-    highlights,
-    importantInfo,
-    dailyItinerary,
-    tripType // 'general' or 'umrah'
-  } = data;
+  const dailyItinerary = data?.dailyItinerary;
 
   // Extract all locations for the map (Structured Data)
   const mapLocations = useMemo(() => {
@@ -36,6 +27,18 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
     });
     return locs;
   }, [dailyItinerary]);
+
+  if (!data) return null;
+
+  const {
+    tripTitle,
+    destination,
+    duration,
+    totalCostEstimate,
+    highlights,
+    importantInfo,
+    tripType // 'general' or 'umrah'
+  } = data;
 
   return (
     <div className="animate-fade-in pb-24">
@@ -134,9 +137,12 @@ const ItineraryTemplate = ({ data, onEdit, onSave }) => {
                             <h5 className="font-bold text-sm text-gray-800 mb-1">{activity.activity}</h5>
                             <p className="text-xs text-gray-500 leading-relaxed">{activity.description}</p>
                             {activity.location && (
-                                <div className="mt-2 pt-2 border-t border-gray-50 flex items-center gap-1 text-[10px] text-blue-500 cursor-pointer hover:text-blue-700">
-                                    <i className="fa-solid fa-map-pin"></i> {activity.location}
-                                </div>
+                                <>
+                                    <div className="mt-2 pt-2 border-t border-gray-50 flex items-center gap-1 text-[10px] text-blue-500 cursor-pointer hover:text-blue-700">
+                                        <i className="fa-solid fa-map-pin"></i> {activity.location}
+                                    </div>
+                                    <LocationMedia location={activity.location} />
+                                </>
                             )}
                         </div>
                     ))}
