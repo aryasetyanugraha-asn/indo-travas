@@ -1,42 +1,39 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { importLibrary } from "@googlemaps/js-api-loader";
 import { initGoogleMaps } from '../utils/googleMapsLoader';
 
 const LocationMedia = ({ location }) => {
     const [photoUrl, setPhotoUrl] = useState(null);
     const [loading, setLoading] = useState(true);
-    const dummyRef = useRef(null);
 
     useEffect(() => {
         if (!location) return;
 
         initGoogleMaps();
 
-        let service;
         const fetchPhoto = async () => {
             try {
-                const { PlacesService } = await importLibrary("places");
-                // PlacesService requires a container, even for non-map searches
-                if (!dummyRef.current) return;
+                // Use the new Places API (Place class) instead of legacy PlacesService
+                const { Place } = await importLibrary("places");
 
-                service = new PlacesService(dummyRef.current);
-
-                const request = {
-                    query: location,
+                // Search for the place by text query
+                const { places } = await Place.searchByText({
+                    textQuery: location,
                     fields: ['photos']
-                };
-
-                service.findPlaceFromQuery(request, (results, status) => {
-                    if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                        if (results[0].photos && results[0].photos.length > 0) {
-                            setPhotoUrl(results[0].photos[0].getUrl({ maxWidth: 400, maxHeight: 300 }));
-                        }
-                    }
-                    setLoading(false);
                 });
 
+                if (places && places.length > 0 && places[0].photos && places[0].photos.length > 0) {
+                     // Use the new getURI method for photos
+                    setPhotoUrl(places[0].photos[0].getURI({ maxWidth: 400, maxHeight: 300 }));
+                } else {
+                    // Fallback or no photo found
+                    console.log(`No photo found for: ${location}`);
+                }
             } catch (error) {
-                console.error("Error fetching place photo:", error);
+                console.error("Error fetching place photo with new API:", error);
+                // The legacy error might still persist if the project hasn't enabled the new API either.
+                // But this code is definitely using the new method.
+            } finally {
                 setLoading(false);
             }
         };
@@ -56,9 +53,6 @@ const LocationMedia = ({ location }) => {
 
     return (
         <div className="mt-4 grid grid-cols-3 gap-2">
-            {/* Hidden div for PlacesService */}
-            <div ref={dummyRef} style={{ display: 'none' }}></div>
-
             {/* 1. Location Photo */}
             <div onClick={openMap} className="aspect-[4/3] rounded-lg overflow-hidden relative bg-gray-100 shadow-sm border border-gray-100 group cursor-pointer">
                 {loading ? (
