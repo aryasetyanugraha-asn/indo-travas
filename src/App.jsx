@@ -692,14 +692,17 @@ function App() {
 
                     {/* Google Map Integration */}
                     <div className="mt-8">
-                        <h3 className="font-bold text-gray-700 mb-2 text-sm">Rute Perjalanan (Hari 1)</h3>
+                        <h3 className="font-bold text-gray-700 mb-2 text-sm">Rute Perjalanan Lengkap</h3>
                         <InteractiveMap
-                            locations={savedTrip.dailyItinerary[0].activities.filter(a => a.location).map(a => ({
-                                address: a.location,
-                                title: a.activity,
-                                description: a.description,
-                                time: a.time
-                            }))}
+                            locations={savedTrip.dailyItinerary.flatMap(day =>
+                                day.activities.filter(a => a.location).map(a => ({
+                                    address: a.location,
+                                    title: a.activity,
+                                    description: a.description,
+                                    time: a.time,
+                                    cost: a.cost
+                                }))
+                            )}
                             destination={savedTrip.destination}
                         />
                     </div>
